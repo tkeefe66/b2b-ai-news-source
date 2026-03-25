@@ -63,22 +63,6 @@ async function withAuthRetry<T>(fn: (forceRefresh: boolean) => Promise<T>): Prom
   }
 }
 
-async function withAuthRetry<T>(fn: (forceRefresh: boolean) => Promise<T>): Promise<T> {
-  try {
-    return await fn(false);
-  } catch (err: any) {
-    const msg = (err?.message || "").toLowerCase();
-    const code = err?.code || err?.response?.status;
-    if (code === 401 || code === 403 || msg.includes("invalid credentials") || msg.includes("token") || msg.includes("unauthorized")) {
-      console.log("[google-drive] Auth error, forcing token refresh and retrying...");
-      clearCachedToken();
-      outputFolderId = null;
-      return await fn(true);
-    }
-    throw err;
-  }
-}
-
 export async function getUncachableGoogleDriveClient(forceRefresh = false) {
   const auth = await getAuth(forceRefresh);
   return google.drive({ version: "v3", auth });
