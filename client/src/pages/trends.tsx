@@ -27,7 +27,7 @@ import {
   FileText, Trash2, Calendar, Save, ChevronDown, ChevronRight,
   ExternalLink, Eye, BookOpen, History, AlertTriangle, Target,
   Bookmark, BookmarkCheck, X, Loader2, Linkedin, FilePen, Video,
-  Presentation, ArrowRight, ChevronLeft, Copy, Check, FileSliders,
+  Presentation, ArrowRight, ChevronLeft, Copy, Check,
   Pen
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -89,183 +89,105 @@ interface TrendContentQuestion {
   why: string;
 }
 
-interface SlidePreview {
+interface SlideOutlineItem {
+  slideNumber: number;
   title: string;
-  body: string;
-  layout?: string;
-  speakerNotes?: string;
+  keyPoints: string[];
+  speakerNotes: string;
 }
 
 interface ContentPreview {
   type: "blog" | "webinar" | "presentation";
   content: string;
   abstract?: string;
-  slidesRaw?: string;
-  slides?: SlidePreview[];
+  headline?: string;
+  storyArc?: string;
+  slideOutline?: SlideOutlineItem[];
+  talkTrack?: string;
 }
 
-const DB_MIDNIGHT = "#0D1846";
-const DB_SKY = "#4CA3FF";
-const DB_SUNSET = "#FF7C33";
-const DB_CLOUD = "#F8FAFC";
+function TrendPresentationView({ preview }: { preview: ContentPreview }) {
+  const [activeSection, setActiveSection] = useState<"headline" | "story" | "outline" | "talktrack">("headline");
+  const [expandedSlide, setExpandedSlide] = useState<number | null>(null);
 
-function StyledSlidePreview({ slide, slideNumber, totalSlides }: { slide: SlidePreview; slideNumber: number; totalSlides: number }) {
-  if (!slide) return null;
-  const layout = slide.layout || "content";
-  const bodyLines = (slide.body || "").split("\n").filter(l => l.trim());
+  const sections = [
+    { id: "headline" as const, label: "Headline" },
+    { id: "story" as const, label: "Story Arc" },
+    { id: "outline" as const, label: "Slide Outline" },
+    { id: "talktrack" as const, label: "Talk Track" },
+  ];
 
-  if (layout === "section") {
-    const sectionNum = String(slideNumber).padStart(2, "0");
-    return (
-      <div className="border border-border rounded-lg overflow-hidden aspect-[16/9] flex flex-col items-center justify-center relative" style={{ background: DB_MIDNIGHT }} data-testid="styled-slide">
-        <div className="absolute top-4 left-0 right-0 h-1" style={{ background: `linear-gradient(to right, ${DB_SKY} 50%, ${DB_SUNSET} 50%)` }} />
-        <div className="text-5xl font-bold mb-3" style={{ color: DB_SKY, fontFamily: "serif" }}>{sectionNum}</div>
-        <h3 className="text-xl font-bold text-white tracking-tight mb-2">{slide.title}</h3>
-        {bodyLines[0] && <p className="text-sm" style={{ color: `${DB_SKY}cc` }}>{bodyLines[0]}</p>}
-      </div>
-    );
-  }
-
-  if (layout === "statement") {
-    return (
-      <div className="border border-border rounded-lg overflow-hidden aspect-[16/9] flex flex-col items-center justify-center px-10 relative" style={{ background: DB_MIDNIGHT }} data-testid="styled-slide">
-        <div className="absolute top-4 left-0 right-0 h-1" style={{ background: `linear-gradient(to right, ${DB_SKY} 50%, ${DB_SUNSET} 50%)` }} />
-        <p className="text-[10px] uppercase tracking-[0.2em] mb-4" style={{ color: DB_SUNSET }}>{slide.title}</p>
-        <p className="text-lg md:text-xl font-bold text-white text-center leading-snug max-w-lg">{bodyLines.join(" ")}</p>
-        <div className="absolute bottom-6 w-12 h-1 rounded-full" style={{ background: DB_SUNSET }} />
-      </div>
-    );
-  }
-
-  if (layout === "stats") {
-    const stats = bodyLines.map(l => {
-      const parts = l.replace(/^[-*]\s*/, "").split("|").map(s => s.trim());
-      return parts.length >= 2 ? { number: parts[0], label: parts[1] } : { number: l.replace(/^[-*]\s*/, ""), label: "" };
-    }).slice(0, 3);
-    return (
-      <div className="border border-border rounded-lg overflow-hidden aspect-[16/9] flex flex-col relative" style={{ background: DB_CLOUD }} data-testid="styled-slide">
-        <div className="h-1" style={{ background: `linear-gradient(to right, ${DB_SKY} 50%, ${DB_SUNSET} 50%)` }} />
-        <div className="px-8 pt-6 pb-2">
-          <h3 className="text-base font-bold tracking-tight" style={{ color: DB_MIDNIGHT }}>{slide.title}</h3>
-        </div>
-        <div className="flex-1 flex items-center justify-center gap-6 px-8 pb-6">
-          {stats.map((s, i) => (
-            <div key={i} className="flex-1 text-center p-3 rounded-lg" style={{ background: "white", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
-              <div className="text-2xl md:text-3xl font-bold mb-1" style={{ color: i === 0 ? DB_SKY : i === 1 ? DB_SUNSET : "#8E6FD6" }}>{s.number}</div>
-              <div className="text-[10px] leading-tight" style={{ color: DB_MIDNIGHT }}>{s.label}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  if (layout === "comparison" || layout === "objection") {
-    const allText = bodyLines.join("\n");
-    const halves = allText.split("---").map(h => h.trim()).filter(Boolean);
-    const leftLines = (halves[0] || "").split("\n").filter(l => l.trim());
-    const rightLines = (halves[1] || "").split("\n").filter(l => l.trim());
-    const leftHeader = leftLines[0]?.replace(/\*\*/g, "") || (layout === "objection" ? "Objections" : "Before");
-    const rightHeader = rightLines[0]?.replace(/\*\*/g, "") || (layout === "objection" ? "Responses" : "After");
-    const leftBullets = leftLines.slice(1).map(l => l.replace(/^[-*]\s*/, ""));
-    const rightBullets = rightLines.slice(1).map(l => l.replace(/^[-*]\s*/, ""));
-    return (
-      <div className="border border-border rounded-lg overflow-hidden aspect-[16/9] flex flex-col" style={{ background: DB_CLOUD }} data-testid="styled-slide">
-        <div className="h-1" style={{ background: `linear-gradient(to right, ${DB_SKY} 50%, ${DB_SUNSET} 50%)` }} />
-        <div className="px-8 pt-5 pb-2">
-          <h3 className="text-base font-bold tracking-tight" style={{ color: DB_MIDNIGHT }}>{slide.title}</h3>
-        </div>
-        <div className="flex-1 flex gap-3 px-6 pb-5">
-          <div className="flex-1 rounded-lg p-3" style={{ background: layout === "objection" ? "#FFF5F5" : "white", borderLeft: `3px solid ${layout === "objection" ? "#FF5162" : DB_SUNSET}` }}>
-            <p className="text-[11px] font-bold mb-2" style={{ color: layout === "objection" ? "#FF5162" : DB_SUNSET }}>{leftHeader}</p>
-            {leftBullets.map((b, i) => <p key={i} className="text-[10px] mb-1.5 leading-snug" style={{ color: DB_MIDNIGHT }}>- {b}</p>)}
-          </div>
-          <div className="flex-1 rounded-lg p-3" style={{ background: layout === "objection" ? "#F0FFF4" : "white", borderLeft: `3px solid ${layout === "objection" ? "#17575D" : DB_SKY}` }}>
-            <p className="text-[11px] font-bold mb-2" style={{ color: layout === "objection" ? "#17575D" : DB_SKY }}>{rightHeader}</p>
-            {rightBullets.map((b, i) => <p key={i} className="text-[10px] mb-1.5 leading-snug" style={{ color: DB_MIDNIGHT }}>- {b}</p>)}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (layout === "quote") {
-    const quoteText = bodyLines[0]?.replace(/^[""]|[""]$/g, "") || "";
-    const attribution = bodyLines[1] || "";
-    return (
-      <div className="border border-border rounded-lg overflow-hidden aspect-[16/9] flex flex-col items-center justify-center px-10 relative" style={{ background: DB_MIDNIGHT }} data-testid="styled-slide">
-        <div className="absolute top-4 left-0 right-0 h-1" style={{ background: `linear-gradient(to right, ${DB_SKY} 50%, ${DB_SUNSET} 50%)` }} />
-        <p className="text-[10px] uppercase tracking-[0.2em] mb-4" style={{ color: DB_SUNSET }}>{slide.title}</p>
-        <div className="text-4xl mb-3" style={{ color: DB_SKY, fontFamily: "serif" }}>&ldquo;</div>
-        <p className="text-sm md:text-base text-white text-center leading-relaxed max-w-md italic mb-4">{quoteText}</p>
-        {attribution && <p className="text-xs" style={{ color: DB_SKY }}>{attribution}</p>}
-      </div>
-    );
-  }
-
-  if (layout === "callout") {
-    const items: { heading: string; bullets: string[] }[] = [];
-    let current: { heading: string; bullets: string[] } | null = null;
-    for (const line of bodyLines) {
-      if (!line.startsWith("-") && !line.startsWith("*")) {
-        if (current) items.push(current);
-        current = { heading: line.replace(/\*\*/g, ""), bullets: [] };
-      } else if (current) {
-        current.bullets.push(line.replace(/^[-*]\s*/, ""));
-      }
-    }
-    if (current) items.push(current);
-    const badgeColors = [DB_SKY, DB_SUNSET, "#8E6FD6", "#17575D"];
-    return (
-      <div className="border border-border rounded-lg overflow-hidden aspect-[16/9] flex flex-col" style={{ background: DB_CLOUD }} data-testid="styled-slide">
-        <div className="h-1" style={{ background: `linear-gradient(to right, ${DB_SKY} 50%, ${DB_SUNSET} 50%)` }} />
-        <div className="px-8 pt-5 pb-2">
-          <h3 className="text-base font-bold tracking-tight" style={{ color: DB_MIDNIGHT }}>{slide.title}</h3>
-        </div>
-        <div className="flex-1 flex flex-wrap gap-3 px-6 pb-5 items-start content-start">
-          {items.slice(0, 4).map((item, i) => (
-            <div key={i} className="flex gap-2.5 flex-[1_1_45%] min-w-0 bg-white rounded-lg p-3" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-              <div className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold" style={{ background: badgeColors[i % 4] }}>{i + 1}</div>
-              <div className="min-w-0">
-                <p className="text-[11px] font-bold mb-1" style={{ color: DB_MIDNIGHT }}>{item.heading}</p>
-                {item.bullets.map((b, j) => <p key={j} className="text-[10px] leading-snug mb-0.5" style={{ color: "#4B5563" }}>{b}</p>)}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  const isDark = layout === "section" || layout === "statement" || layout === "quote";
   return (
-    <div className="border border-border rounded-lg overflow-hidden aspect-[16/9] flex flex-col" style={{ background: isDark ? DB_MIDNIGHT : DB_CLOUD }} data-testid="styled-slide">
-      <div className="h-1" style={{ background: `linear-gradient(to right, ${DB_SKY} 50%, ${DB_SUNSET} 50%)` }} />
-      <div className="px-8 pt-6 pb-2">
-        <h3 className="text-base font-bold tracking-tight" style={{ color: isDark ? "white" : DB_MIDNIGHT }}>{slide.title}</h3>
+    <div className="space-y-3">
+      <div className="flex gap-1 flex-wrap">
+        {sections.map(s => (
+          <button
+            key={s.id}
+            onClick={() => setActiveSection(s.id)}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${activeSection === s.id ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+          >
+            {s.label}
+          </button>
+        ))}
       </div>
-      <div className="flex-1 px-8 pb-5">
-        {bodyLines.map((line, i) => {
-          const clean = line.replace(/^[-*]\s*/, "");
-          const isBullet = line.startsWith("-") || line.startsWith("*");
-          const boldMatch = clean.match(/^\*\*(.+?)\*\*(.*)$/);
-          return (
-            <div key={i} className="flex items-start gap-2 mb-2">
-              {isBullet && <div className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0" style={{ background: DB_SKY }} />}
-              <p className="text-[11px] leading-snug" style={{ color: isDark ? "#E5E7EB" : DB_MIDNIGHT }}>
-                {boldMatch ? <><span className="font-bold">{boldMatch[1]}</span>{boldMatch[2]}</> : clean}
-              </p>
+
+      {activeSection === "headline" && (
+        <div className="p-5 bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/20 rounded-lg">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-3 font-semibold">The Hook</p>
+          <p className="text-lg font-bold text-foreground leading-snug">{preview.headline || "No headline generated"}</p>
+        </div>
+      )}
+      {activeSection === "story" && (
+        <div className="p-4 bg-muted/30 rounded-lg prose-sm max-w-none">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-3 font-semibold">Narrative Arc</p>
+          <MarkdownRenderer content={preview.storyArc || "No story arc generated"} />
+        </div>
+      )}
+      {activeSection === "outline" && (
+        <div className="space-y-2">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold px-1">{preview.slideOutline?.length || 0} Slides</p>
+          {(preview.slideOutline || []).map((slide, idx) => (
+            <div key={idx} className="border border-border rounded-lg overflow-hidden">
+              <button
+                className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-muted/30 transition-colors"
+                onClick={() => setExpandedSlide(expandedSlide === idx ? null : idx)}
+              >
+                <span className="shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center">{slide.slideNumber}</span>
+                <span className="text-sm font-medium flex-1">{slide.title}</span>
+                <ChevronRight className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${expandedSlide === idx ? "rotate-90" : ""}`} />
+              </button>
+              {expandedSlide === idx && (
+                <div className="px-3 pb-3 space-y-2 border-t border-border bg-muted/10">
+                  <div className="pt-2 space-y-1">
+                    {slide.keyPoints.map((pt, pi) => (
+                      <div key={pi} className="flex items-start gap-2 text-xs text-foreground/80">
+                        <span className="mt-1.5 shrink-0 h-1 w-1 rounded-full bg-primary/60" />
+                        <span>{pt}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {slide.speakerNotes && (
+                    <div className="pt-2 border-t border-border/50">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 font-semibold">Speaker Notes</p>
+                      <p className="text-xs text-foreground/70 leading-relaxed">{slide.speakerNotes}</p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-          );
-        })}
-      </div>
-      <div className="px-8 pb-3 flex justify-between items-center">
-        <div className="w-16 h-0.5 rounded" style={{ background: DB_SUNSET }} />
-        <span className="text-[9px]" style={{ color: isDark ? "#6B7280" : "#9CA3AF" }}>{slideNumber} / {totalSlides}</span>
-      </div>
+          ))}
+        </div>
+      )}
+      {activeSection === "talktrack" && (
+        <div className="p-4 bg-muted/30 rounded-lg prose-sm max-w-none">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-3 font-semibold">Full Talk Track</p>
+          <MarkdownRenderer content={preview.talkTrack || "No talk track generated"} />
+        </div>
+      )}
     </div>
   );
 }
+
 
 function TrendLinkedInModal({ posts, onClose, onRefine, isRefining }: {
   posts: string[];
@@ -347,8 +269,7 @@ function TrendContentPreviewModal({ preview, onClose, onRefine, onSave, isRefini
 }) {
   const [refineFeedback, setRefineFeedback] = useState("");
   const [showRefineInput, setShowRefineInput] = useState(false);
-  const [activeTab, setActiveTab] = useState<"abstract" | "slides">("abstract");
-  const [currentSlide, setCurrentSlide] = useState(0);
+  const [activeTab, setActiveTab] = useState<"abstract" | "content">("abstract");
 
   const colorMap = {
     blog: { border: "border-violet-200 dark:border-violet-800", bg: "bg-violet-50/50 dark:bg-violet-950/20", text: "text-violet-700 dark:text-violet-400", btn: "bg-violet-600 hover:bg-violet-700" },
@@ -357,7 +278,6 @@ function TrendContentPreviewModal({ preview, onClose, onRefine, onSave, isRefini
   };
   const colors = colorMap[preview.type];
   const typeLabel = preview.type === "blog" ? "Blog Post" : preview.type === "webinar" ? "Webinar" : "Presentation";
-  const slides = preview.slides || [];
 
   return (
     <div className={`mt-3 ${colors.border} border rounded-lg overflow-hidden`} data-testid="trend-content-preview">
@@ -379,8 +299,8 @@ function TrendContentPreviewModal({ preview, onClose, onRefine, onSave, isRefini
           <button className={`flex-1 px-3 py-2 text-xs font-medium transition-colors ${activeTab === "abstract" ? `${colors.bg} ${colors.text} border-b-2 border-current` : "text-muted-foreground hover:bg-muted/30"}`} onClick={() => setActiveTab("abstract")} data-testid="tab-trend-abstract">
             <FileText className="h-3 w-3 inline mr-1" />Abstract
           </button>
-          <button className={`flex-1 px-3 py-2 text-xs font-medium transition-colors ${activeTab === "slides" ? `${colors.bg} ${colors.text} border-b-2 border-current` : "text-muted-foreground hover:bg-muted/30"}`} onClick={() => setActiveTab("slides")} data-testid="tab-trend-slides">
-            <FileSliders className="h-3 w-3 inline mr-1" />Slide Deck ({slides.length})
+          <button className={`flex-1 px-3 py-2 text-xs font-medium transition-colors ${activeTab === "content" ? `${colors.bg} ${colors.text} border-b-2 border-current` : "text-muted-foreground hover:bg-muted/30"}`} onClick={() => setActiveTab("content")} data-testid="tab-trend-content">
+            Content
           </button>
         </div>
       )}
@@ -395,32 +315,8 @@ function TrendContentPreviewModal({ preview, onClose, onRefine, onSave, isRefini
             <div className="max-w-2xl mx-auto prose-sm"><MarkdownRenderer content={preview.abstract || ""} /></div>
           </div>
         ) : (
-          <div className="p-4" data-testid="trend-slides-preview">
-            {slides.length > 0 && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between px-1">
-                  <Button variant="ghost" size="sm" disabled={currentSlide === 0} onClick={() => setCurrentSlide(Math.max(0, currentSlide - 1))} className="h-7" data-testid="button-trend-prev-slide">
-                    <ChevronLeft className="h-3.5 w-3.5 mr-1" />Prev
-                  </Button>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">Slide {currentSlide + 1} of {slides.length}</span>
-                    {slides[currentSlide]?.layout && (
-                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-muted text-muted-foreground uppercase">{slides[currentSlide].layout}</span>
-                    )}
-                  </div>
-                  <Button variant="ghost" size="sm" disabled={currentSlide === slides.length - 1} onClick={() => setCurrentSlide(Math.min(slides.length - 1, currentSlide + 1))} className="h-7" data-testid="button-trend-next-slide">
-                    Next<ChevronRight className="h-3.5 w-3.5 ml-1" />
-                  </Button>
-                </div>
-                <StyledSlidePreview slide={slides[currentSlide]} slideNumber={currentSlide + 1} totalSlides={slides.length} />
-                {slides[currentSlide]?.speakerNotes && (
-                  <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-md p-2.5">
-                    <p className="text-[10px] font-semibold text-amber-700 dark:text-amber-400 mb-1 uppercase tracking-wider">Speaker Notes</p>
-                    <p className="text-xs text-foreground/80 leading-relaxed whitespace-pre-line">{slides[currentSlide].speakerNotes?.replace(/^(NOTES|SPEAKER NOTES):\s*/i, "")}</p>
-                  </div>
-                )}
-              </div>
-            )}
+          <div className="p-4" data-testid="trend-presentation-preview">
+            <TrendPresentationView preview={preview} />
           </div>
         )}
       </div>
@@ -466,9 +362,6 @@ function TrendContentGenerator({ name, description, category, model, idSuffix }:
   const [creationMode, setCreationMode] = useState<"blog" | "webinar" | "presentation" | null>(null);
   const [documentName, setDocumentName] = useState("");
   const [presentationAudience, setPresentationAudience] = useState("");
-  const [presentationStyle, setPresentationStyle] = useState<"executive-briefing" | "sales-enablement" | "thought-leadership" | "technical-deep-dive">("thought-leadership");
-  const [selectedTemplate, setSelectedTemplate] = useState("Classic");
-  const { data: slideTemplates } = useQuery<{ name: string; count: number }[]>({ queryKey: ["/api/slide-templates"] });
   const [preview, setPreview] = useState<ContentPreview | null>(null);
   const [contentQuestions, setContentQuestions] = useState<TrendContentQuestion[]>([]);
   const [contentAnswers, setContentAnswers] = useState<Record<string, string>>({});
@@ -521,7 +414,7 @@ function TrendContentGenerator({ name, description, category, model, idSuffix }:
 
   const openCreationPrompt = (mode: "blog" | "webinar" | "presentation") => {
     if (creationMode === mode) { setCreationMode(null); setCreationPhase("setup"); return; }
-    setCreationMode(mode); setDocumentName(defaultNames[mode]); setPresentationAudience(""); setPresentationStyle("thought-leadership"); setCreationPhase("setup");
+    setCreationMode(mode); setDocumentName(defaultNames[mode]); setPresentationAudience(""); setCreationPhase("setup");
     setContentQuestions([]); setContentAnswers({}); setContentAcknowledgment(""); setAllContentQA([]); setContentFollowUpRound(1);
     contentQuestionsMutation.mutate(mode);
   };
@@ -554,19 +447,19 @@ function TrendContentGenerator({ name, description, category, model, idSuffix }:
 
   const webinarMutation = useMutation({
     mutationFn: async (params: { name: string; refinement?: string; previousContent?: string; designTemplate?: string; creatorAnswers?: { question: string; answer: string }[] }) => {
-      const res = await apiRequest("POST", "/api/thought-leadership/generate-webinar", { ...oppPayload, documentName: params.name, refinement: params.refinement || "", previousContent: params.previousContent || "", designTemplate: params.designTemplate || selectedTemplate, creatorAnswers: params.creatorAnswers || [], model });
+      const res = await apiRequest("POST", "/api/thought-leadership/generate-webinar", { ...oppPayload, documentName: params.name, refinement: params.refinement || "", previousContent: params.previousContent || "", creatorAnswers: params.creatorAnswers || [], model });
       return res.json();
     },
-    onSuccess: (data) => { setPreview({ type: "webinar", content: "", abstract: data.abstract, slidesRaw: data.slidesRaw, slides: data.slides }); resetCreationPrompt(); },
+    onSuccess: (data) => { setPreview({ type: "webinar", content: "", abstract: data.abstract, headline: data.headline, storyArc: data.storyArc, slideOutline: data.slideOutline, talkTrack: data.talkTrack }); resetCreationPrompt(); },
     onError: () => { toast({ title: "Failed to generate webinar", variant: "destructive" }); },
   });
 
   const presentationMutation = useMutation({
     mutationFn: async (params: { name: string; targetAudience: string; refinement?: string; previousContent?: string; designTemplate?: string; creatorAnswers?: { question: string; answer: string }[] }) => {
-      const res = await apiRequest("POST", "/api/thought-leadership/generate-presentation", { ...oppPayload, targetAudience: params.targetAudience, presentationStyle, documentName: params.name, refinement: params.refinement || "", previousContent: params.previousContent || "", designTemplate: params.designTemplate || selectedTemplate, creatorAnswers: params.creatorAnswers || [], model });
+      const res = await apiRequest("POST", "/api/thought-leadership/generate-presentation", { ...oppPayload, targetAudience: params.targetAudience, documentName: params.name, refinement: params.refinement || "", previousContent: params.previousContent || "", creatorAnswers: params.creatorAnswers || [], model });
       return res.json();
     },
-    onSuccess: (data) => { setPreview({ type: "presentation", content: data.slidesRaw, slides: data.slides }); resetCreationPrompt(); },
+    onSuccess: (data) => { setPreview({ type: "presentation", content: "", headline: data.headline, storyArc: data.storyArc, slideOutline: data.slideOutline, talkTrack: data.talkTrack }); resetCreationPrompt(); },
     onError: () => { toast({ title: "Failed to generate presentation", variant: "destructive" }); },
   });
 
@@ -575,7 +468,7 @@ function TrendContentGenerator({ name, description, category, model, idSuffix }:
       if (!preview) throw new Error("No preview");
       const body: Record<string, string> = { type: preview.type, documentName: documentName || defaultNames[preview.type] };
       if (preview.type === "blog") body.content = preview.content;
-      else if (preview.type === "webinar") { body.content = preview.abstract || ""; body.slidesContent = preview.slidesRaw || ""; }
+      else if (preview.type === "webinar") { body.content = preview.abstract || ""; body.slidesContent = JSON.stringify(preview.slideOutline || []); }
       else body.content = preview.content;
       const res = await apiRequest("POST", "/api/thought-leadership/save-to-drive", body);
       return res.json();
@@ -686,41 +579,9 @@ function TrendContentGenerator({ name, description, category, model, idSuffix }:
                     <VoiceInputButton onTranscript={(text) => setDocumentName(prev => prev ? prev + " " + text : text)} />
                   </div>
                   {creationMode === "presentation" && (
-                    <>
-                      <div className="flex items-center gap-1">
-                        <Input type="text" placeholder="Target audience, e.g., CMOs at B2B SaaS companies" value={presentationAudience} onChange={(e) => setPresentationAudience(e.target.value)} className="text-xs h-8 flex-1" data-testid="input-trend-pres-audience" />
-                        <VoiceInputButton onTranscript={(text) => setPresentationAudience(prev => prev ? prev + " " + text : text)} />
-                      </div>
-                      <div className="grid grid-cols-2 gap-1.5" data-testid="presentation-style-chooser">
-                        {([
-                          { value: "executive-briefing" as const, label: "Executive Briefing", desc: "8-12 slides, strategic, concise", icon: "briefcase" },
-                          { value: "sales-enablement" as const, label: "Sales Enablement", desc: "12-16 slides, competitive, proof-heavy", icon: "target" },
-                          { value: "thought-leadership" as const, label: "Thought Leadership", desc: "12-16 slides, visionary, narrative", icon: "lightbulb" },
-                          { value: "technical-deep-dive" as const, label: "Technical Deep-Dive", desc: "14-18 slides, detailed, evidence-based", icon: "code" },
-                        ]).map(s => (
-                          <button key={s.value} type="button" onClick={() => setPresentationStyle(s.value)}
-                            className={`text-left p-2 rounded-lg border text-xs transition-all ${presentationStyle === s.value ? "border-orange-400 bg-orange-50/80 dark:bg-orange-950/30 dark:border-orange-600 ring-1 ring-orange-400/30" : "border-border/50 hover:border-border hover:bg-muted/30"}`}
-                            data-testid={`button-style-${s.value}`}>
-                            <div className="font-semibold text-[11px] mb-0.5">{s.label}</div>
-                            <div className="text-[10px] text-muted-foreground leading-tight">{s.desc}</div>
-                          </button>
-                        ))}
-                      </div>
-                    </>
-                  )}
-                  {(creationMode === "webinar" || creationMode === "presentation") && slideTemplates && slideTemplates.length > 1 && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-[11px] text-muted-foreground whitespace-nowrap">Design Template:</span>
-                      <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
-                        <SelectTrigger className="h-8 text-xs flex-1" data-testid="select-trend-template">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {slideTemplates.map(t => (
-                            <SelectItem key={t.name} value={t.name}>{t.name} ({t.count} designs)</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                    <div className="flex items-center gap-1">
+                      <Input type="text" placeholder="Target audience, e.g., CMOs at B2B SaaS companies" value={presentationAudience} onChange={(e) => setPresentationAudience(e.target.value)} className="text-xs h-8 flex-1" data-testid="input-trend-pres-audience" />
+                      <VoiceInputButton onTranscript={(text) => setPresentationAudience(prev => prev ? prev + " " + text : text)} />
                     </div>
                   )}
                   <div className="flex flex-col sm:flex-row gap-2 justify-end">
@@ -776,7 +637,7 @@ function TrendContentGenerator({ name, description, category, model, idSuffix }:
               onSave={() => saveMutation.mutate()}
               onRefine={(feedback) => {
                 if (preview.type === "blog") blogMutation.mutate({ name: documentName, refinement: feedback, previousContent: preview.content, creatorAnswers: getCreatorAnswers() });
-                else if (preview.type === "webinar") webinarMutation.mutate({ name: documentName, refinement: feedback, previousContent: JSON.stringify({ abstract: preview.abstract, slidesRaw: preview.slidesRaw }), creatorAnswers: getCreatorAnswers() });
+                else if (preview.type === "webinar") webinarMutation.mutate({ name: documentName, refinement: feedback, previousContent: JSON.stringify({ abstract: preview.abstract, talkTrack: preview.talkTrack }), creatorAnswers: getCreatorAnswers() });
                 else presentationMutation.mutate({ name: documentName, targetAudience: presentationAudience, refinement: feedback, previousContent: preview.content, creatorAnswers: getCreatorAnswers() });
               }}
             />

@@ -11,7 +11,7 @@ import {
   Lightbulb, Clock, Zap, ChevronDown, ChevronRight, Trash2,
   Mic, Pen, BookOpen, Target, Users, Loader2, MessageSquare, Award, FileText,
   Linkedin, Copy, Check, X, Video, FilePen, Presentation, ExternalLink, RefreshCw,
-  ChevronLeft, Save, Eye, FileSliders, ArrowRight, RotateCcw, Upload, ToggleLeft, ToggleRight
+  ChevronLeft, Save, Eye, ArrowRight, RotateCcw, Upload, ToggleLeft, ToggleRight
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -234,141 +234,113 @@ function ContentCreatedBanner({ label, url, onClose }: { label: string; url: str
   );
 }
 
-interface SlidePreview {
+interface SlideOutlineItem {
+  slideNumber: number;
   title: string;
-  body: string;
-  layout?: string;
-  speakerNotes?: string;
+  keyPoints: string[];
+  speakerNotes: string;
 }
 
 interface PreviewData {
   type: "blog" | "webinar" | "presentation";
   content: string;
   abstract?: string;
-  slidesRaw?: string;
-  slides?: SlidePreview[];
+  headline?: string;
+  storyArc?: string;
+  slideOutline?: SlideOutlineItem[];
+  talkTrack?: string;
 }
 
+function PresentationContentView({ preview }: { preview: PreviewData }) {
+  const [activeSection, setActiveSection] = useState<"headline" | "story" | "outline" | "talktrack">("headline");
+  const [expandedSlide, setExpandedSlide] = useState<number | null>(null);
 
-function SlidePreviewCard({ slide, slideNumber, total }: { slide: SlidePreview; slideNumber: number; total: number }) {
-  const layout = slide.layout || "content";
-  const layoutColors: Record<string, string> = {
-    section: "bg-[#0D1846] text-white",
-    statement: "bg-[#0D1846] text-white",
-    stats: "bg-[#F8FAFC] text-[#0D1846] dark:bg-slate-900 dark:text-white",
-    comparison: "bg-[#F8FAFC] text-[#0D1846] dark:bg-slate-900 dark:text-white",
-    callout: "bg-[#F8FAFC] text-[#0D1846] dark:bg-slate-900 dark:text-white",
-    quote: "bg-[#0D1846] text-white",
-    content: "bg-white text-[#0D1846] dark:bg-slate-900 dark:text-white",
-    objection: "bg-[#F8FAFC] text-[#0D1846] dark:bg-slate-900 dark:text-white",
-  };
-
-  const bgClass = layoutColors[layout] || layoutColors.content;
-  const bodyLines = slide.body.split("\n").filter(l => l.trim());
+  const sections = [
+    { id: "headline" as const, label: "Headline", icon: Zap },
+    { id: "story" as const, label: "Story Arc", icon: BookOpen },
+    { id: "outline" as const, label: "Slide Outline", icon: FileText },
+    { id: "talktrack" as const, label: "Talk Track", icon: MessageSquare },
+  ];
 
   return (
-    <div className="border border-border rounded-lg overflow-hidden shadow-sm" data-testid={`slide-preview-${slideNumber}`}>
-      <div className={`aspect-[16/9] p-6 flex flex-col justify-center relative ${bgClass}`}>
-        <div className="absolute top-0 left-0 w-full h-0.5 bg-[#4CA3FF]" />
-        <div className="absolute bottom-0 right-0 w-16 h-1 bg-[#FF7C33] rounded-l" />
-        <div className="text-[10px] uppercase tracking-widest opacity-60 mb-2">{layout}</div>
-        <h3 className={`font-bold mb-3 leading-tight ${layout === "section" || layout === "statement" ? "text-xl text-center" : "text-base"}`}>
-          {slide.title}
-        </h3>
-        {layout === "stats" ? (
-          <div className="grid grid-cols-1 gap-2">
-            {bodyLines.slice(0, 3).map((line, j) => {
-              const parts = line.split("|").map(p => p.trim());
-              return (
-                <div key={j} className="text-center">
-                  <div className="text-2xl font-bold text-[#4CA3FF]">{parts[0]}</div>
-                  {parts[1] && <div className="text-xs opacity-80">{parts[1]}</div>}
-                </div>
-              );
-            })}
-          </div>
-        ) : layout === "comparison" ? (
-          <div className="grid grid-cols-2 gap-3 divide-x divide-[#4CA3FF]/20">
-            {(() => {
-              const left: string[] = [];
-              const right: string[] = [];
-              let side = left;
-              bodyLines.forEach(l => { if (l === "---") { side = right; } else { side.push(l); } });
-              return [left, right].map((col, ci) => (
-                <div key={ci} className="space-y-1 px-1">
-                  {col.map((l, li) => {
-                    const cleaned = l.replace(/^[-*]\s*/, "").replace(/\*\*/g, "");
-                    const isBoldHeader = l.includes("**");
-                    return <div key={li} className={`text-xs opacity-90 ${isBoldHeader ? "font-semibold text-[#4CA3FF]" : ""}`}>{cleaned}</div>;
-                  })}
-                </div>
-              ));
-            })()}
-          </div>
-        ) : layout === "objection" ? (
-          <div className="grid grid-cols-2 gap-3">
-            {(() => {
-              const left: string[] = [];
-              const right: string[] = [];
-              let side = left;
-              bodyLines.forEach(l => { if (l === "---") { side = right; } else { side.push(l); } });
-              return [left, right].map((col, ci) => (
-                <div key={ci} className="space-y-1">
-                  {col.map((l, li) => <div key={li} className={`text-xs opacity-90 ${li === 0 ? "font-semibold text-[#FF7C33]" : ""}`}>{l.replace(/^[-*]\s*/, "")}</div>)}
-                </div>
-              ));
-            })()}
-          </div>
-        ) : layout === "quote" ? (
-          <div className="text-center px-4">
-            {bodyLines[0] && <p className="text-sm italic opacity-90 mb-2">{bodyLines[0].replace(/^[""]|[""]$/g, "")}</p>}
-            {bodyLines[1] && <p className="text-xs text-[#4CA3FF] font-medium">— {bodyLines[1]}</p>}
-          </div>
-        ) : layout === "callout" ? (
-          <div className="space-y-2">
-            {(() => {
-              const items: { heading: string; details: string[] }[] = [];
-              bodyLines.forEach(l => {
-                if (!l.match(/^[-*]/)) { items.push({ heading: l, details: [] }); }
-                else if (items.length > 0) { items[items.length - 1].details.push(l.replace(/^[-*]\s*/, "")); }
-              });
-              return items.slice(0, 4).map((item, j) => (
-                <div key={j} className="flex items-start gap-2">
-                  <span className="shrink-0 w-5 h-5 rounded-full bg-[#FF7C33] text-white text-[10px] font-bold flex items-center justify-center">{j + 1}</span>
-                  <div>
-                    <div className="text-xs font-semibold">{item.heading.replace(/\*\*/g, "")}</div>
-                    {item.details.map((d, di) => <div key={di} className="text-[10px] opacity-75">{d}</div>)}
+    <div className="space-y-3">
+      <div className="flex gap-1 flex-wrap">
+        {sections.map(s => (
+          <button
+            key={s.id}
+            onClick={() => setActiveSection(s.id)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${activeSection === s.id ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+          >
+            <s.icon className="h-3 w-3" />
+            {s.label}
+          </button>
+        ))}
+      </div>
+
+      {activeSection === "headline" && (
+        <div className="p-5 bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/20 rounded-lg">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-3 font-semibold">The Hook</p>
+          <p className="text-lg font-bold text-foreground leading-snug">
+            {preview.headline || "No headline generated"}
+          </p>
+        </div>
+      )}
+
+      {activeSection === "story" && (
+        <div className="p-4 bg-muted/30 rounded-lg prose-sm max-w-none">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-3 font-semibold">Narrative Arc</p>
+          <MarkdownRenderer content={preview.storyArc || "No story arc generated"} />
+        </div>
+      )}
+
+      {activeSection === "outline" && (
+        <div className="space-y-2">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold px-1">
+            {preview.slideOutline?.length || 0} Slides
+          </p>
+          {(preview.slideOutline || []).map((slide, idx) => (
+            <div key={idx} className="border border-border rounded-lg overflow-hidden">
+              <button
+                className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-muted/30 transition-colors"
+                onClick={() => setExpandedSlide(expandedSlide === idx ? null : idx)}
+              >
+                <span className="shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center">
+                  {slide.slideNumber}
+                </span>
+                <span className="text-sm font-medium flex-1">{slide.title}</span>
+                <ChevronRight className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${expandedSlide === idx ? "rotate-90" : ""}`} />
+              </button>
+              {expandedSlide === idx && (
+                <div className="px-3 pb-3 space-y-2 border-t border-border bg-muted/10">
+                  <div className="pt-2 space-y-1">
+                    {slide.keyPoints.map((pt, pi) => (
+                      <div key={pi} className="flex items-start gap-2 text-xs text-foreground/80">
+                        <span className="mt-1.5 shrink-0 h-1 w-1 rounded-full bg-primary/60" />
+                        <span>{pt}</span>
+                      </div>
+                    ))}
                   </div>
+                  {slide.speakerNotes && (
+                    <div className="pt-2 border-t border-border/50">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 font-semibold flex items-center gap-1">
+                        <MessageSquare className="h-2.5 w-2.5" />Speaker Notes
+                      </p>
+                      <p className="text-xs text-foreground/70 leading-relaxed">{slide.speakerNotes}</p>
+                    </div>
+                  )}
                 </div>
-              ));
-            })()}
-          </div>
-        ) : layout === "section" || layout === "statement" ? (
-          <p className="text-center text-sm opacity-90">{bodyLines.join(" ")}</p>
-        ) : (
-          <div className="space-y-1">
-            {bodyLines.slice(0, 6).map((line, j) => (
-              <div key={j} className="flex items-start gap-1.5 text-xs opacity-90">
-                {line.match(/^[-*]/) ? (
-                  <><span className="mt-1 shrink-0 h-1 w-1 rounded-full bg-[#4CA3FF] opacity-80" /><span>{line.replace(/^[-*]\s*/, "")}</span></>
-                ) : (
-                  <span className="font-medium">{line}</span>
-                )}
-              </div>
-            ))}
-            {bodyLines.length > 6 && <div className="text-[10px] opacity-50">+{bodyLines.length - 6} more lines</div>}
-          </div>
-        )}
-      </div>
-      <div className="px-3 py-1.5 bg-muted/30 border-t border-border flex items-center justify-between">
-        <span className="text-[10px] text-muted-foreground">Slide {slideNumber} of {total}</span>
-        {slide.speakerNotes && (
-          <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-            <MessageSquare className="h-2.5 w-2.5" />
-            Speaker notes
-          </span>
-        )}
-      </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {activeSection === "talktrack" && (
+        <div className="p-4 bg-muted/30 rounded-lg prose-sm max-w-none">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-3 font-semibold">Full Talk Track</p>
+          <MarkdownRenderer content={preview.talkTrack || "No talk track generated"} />
+        </div>
+      )}
     </div>
   );
 }
@@ -392,12 +364,7 @@ function ContentPreviewModal({
 }) {
   const [refineFeedback, setRefineFeedback] = useState("");
   const [showRefineInput, setShowRefineInput] = useState(false);
-  const [activeTab, setActiveTab] = useState<"abstract" | "slides">("abstract");
-  const [currentSlide, setCurrentSlide] = useState(0);
-
-  useEffect(() => {
-    setCurrentSlide(0);
-  }, [preview.content, preview.slidesRaw]);
+  const [activeTab, setActiveTab] = useState<"abstract" | "content">("abstract");
 
   const colorMap = {
     blog: { border: "border-violet-200 dark:border-violet-800", bg: "bg-violet-50/50 dark:bg-violet-950/20", text: "text-violet-700 dark:text-violet-400", btn: "bg-violet-600 hover:bg-violet-700" },
@@ -406,7 +373,6 @@ function ContentPreviewModal({
   };
   const colors = colorMap[preview.type];
   const typeLabel = preview.type === "blog" ? "Blog Post" : preview.type === "webinar" ? "Webinar" : "Presentation";
-  const slides = preview.slides || [];
 
   return (
     <div className={`mt-3 ${colors.border} border rounded-lg overflow-hidden`} data-testid="content-preview-modal">
@@ -448,17 +414,17 @@ function ContentPreviewModal({
             Abstract
           </button>
           <button
-            className={`flex-1 px-3 py-2 text-xs font-medium transition-colors ${activeTab === "slides" ? `${colors.bg} ${colors.text} border-b-2 border-current` : "text-muted-foreground hover:bg-muted/30"}`}
-            onClick={() => setActiveTab("slides")}
-            data-testid="tab-slides"
+            className={`flex-1 px-3 py-2 text-xs font-medium transition-colors ${activeTab === "content" ? `${colors.bg} ${colors.text} border-b-2 border-current` : "text-muted-foreground hover:bg-muted/30"}`}
+            onClick={() => setActiveTab("content")}
+            data-testid="tab-content"
           >
-            <FileSliders className="h-3 w-3 inline mr-1" />
-            Slide Deck ({slides.length})
+            <FileText className="h-3 w-3 inline mr-1" />
+            Content
           </button>
         </div>
       )}
 
-      <div className="max-h-[500px] overflow-auto">
+      <div className="max-h-[600px] overflow-auto">
         {preview.type === "blog" ? (
           <div className="p-5 bg-white dark:bg-background border-b border-border" data-testid="blog-preview-content">
             <div className="max-w-2xl mx-auto prose-sm">
@@ -472,58 +438,8 @@ function ContentPreviewModal({
             </div>
           </div>
         ) : (
-          <div className="p-4" data-testid="slides-preview-content">
-            {slides.length > 0 && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between px-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    disabled={currentSlide === 0}
-                    onClick={() => setCurrentSlide(Math.max(0, currentSlide - 1))}
-                    className="h-7"
-                    data-testid="button-prev-slide"
-                  >
-                    <ChevronLeft className="h-3.5 w-3.5 mr-1" />Prev
-                  </Button>
-                  <span className="text-xs text-muted-foreground">
-                    Slide {currentSlide + 1} of {slides.length}
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    disabled={currentSlide === slides.length - 1}
-                    onClick={() => setCurrentSlide(Math.min(slides.length - 1, currentSlide + 1))}
-                    className="h-7"
-                    data-testid="button-next-slide"
-                  >
-                    Next<ChevronRight className="h-3.5 w-3.5 ml-1" />
-                  </Button>
-                </div>
-                <SlidePreviewCard slide={slides[currentSlide]} slideNumber={currentSlide + 1} total={slides.length} />
-                {slides[currentSlide]?.speakerNotes && (
-                  <div className="border border-border rounded-lg p-3 bg-muted/20">
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 font-semibold flex items-center gap-1">
-                      <MessageSquare className="h-3 w-3" />
-                      Speaker Notes
-                    </p>
-                    <p className="text-xs text-foreground/80 leading-relaxed whitespace-pre-line">{slides[currentSlide].speakerNotes}</p>
-                  </div>
-                )}
-                <div className="flex gap-1.5 overflow-x-auto pb-2">
-                  {slides.map((s, idx) => (
-                    <button
-                      key={idx}
-                      className={`shrink-0 w-16 h-10 rounded border text-[8px] font-medium truncate px-1 transition-colors ${idx === currentSlide ? `${colors.border} ${colors.bg} ${colors.text}` : "border-border bg-muted/20 text-muted-foreground hover:bg-muted/40"}`}
-                      onClick={() => setCurrentSlide(idx)}
-                      data-testid={`slide-thumb-${idx}`}
-                    >
-                      {idx + 1}. {s.title.substring(0, 20)}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
+          <div className="p-4" data-testid="presentation-content-preview">
+            <PresentationContentView preview={preview} />
           </div>
         )}
       </div>
@@ -611,8 +527,6 @@ function OpportunityCard({ opp, index, model }: { opp: ThoughtLeadershipOpportun
   const [creationMode, setCreationMode] = useState<"blog" | "webinar" | "presentation" | null>(null);
   const [documentName, setDocumentName] = useState("");
   const [presentationAudience, setPresentationAudience] = useState("");
-  const [selectedTemplate, setSelectedTemplate] = useState("Classic");
-  const { data: slideTemplates } = useQuery<{ name: string; count: number }[]>({ queryKey: ["/api/slide-templates"] });
   const [showLinkedInPrompt, setShowLinkedInPrompt] = useState(false);
   const [linkedInPostCount, setLinkedInPostCount] = useState("1");
   const [preview, setPreview] = useState<PreviewData | null>(null);
@@ -782,20 +696,19 @@ function OpportunityCard({ opp, index, model }: { opp: ThoughtLeadershipOpportun
   });
 
   const webinarMutation = useMutation({
-    mutationFn: async (params: { name: string; refinement?: string; previousContent?: string; designTemplate?: string; creatorAnswers?: { question: string; answer: string }[] }) => {
+    mutationFn: async (params: { name: string; refinement?: string; previousContent?: string; creatorAnswers?: { question: string; answer: string }[] }) => {
       const res = await apiRequest("POST", "/api/thought-leadership/generate-webinar", {
         ...oppPayload,
         documentName: params.name,
         refinement: params.refinement || "",
         previousContent: params.previousContent || "",
-        designTemplate: params.designTemplate || selectedTemplate,
         creatorAnswers: params.creatorAnswers || [],
         model,
       });
       return res.json();
     },
     onSuccess: (data) => {
-      setPreview({ type: "webinar", content: "", abstract: data.abstract, slidesRaw: data.slidesRaw, slides: data.slides });
+      setPreview({ type: "webinar", content: "", abstract: data.abstract, headline: data.headline, storyArc: data.storyArc, slideOutline: data.slideOutline, talkTrack: data.talkTrack });
       resetCreationPrompt();
     },
     onError: () => {
@@ -804,21 +717,20 @@ function OpportunityCard({ opp, index, model }: { opp: ThoughtLeadershipOpportun
   });
 
   const presentationMutation = useMutation({
-    mutationFn: async (params: { name: string; targetAudience: string; refinement?: string; previousContent?: string; designTemplate?: string; creatorAnswers?: { question: string; answer: string }[] }) => {
+    mutationFn: async (params: { name: string; targetAudience: string; refinement?: string; previousContent?: string; creatorAnswers?: { question: string; answer: string }[] }) => {
       const res = await apiRequest("POST", "/api/thought-leadership/generate-presentation", {
         ...oppPayload,
         targetAudience: params.targetAudience,
         documentName: params.name,
         refinement: params.refinement || "",
         previousContent: params.previousContent || "",
-        designTemplate: params.designTemplate || selectedTemplate,
         creatorAnswers: params.creatorAnswers || [],
         model,
       });
       return res.json();
     },
     onSuccess: (data) => {
-      setPreview({ type: "presentation", content: data.slidesRaw, slides: data.slides });
+      setPreview({ type: "presentation", content: "", headline: data.headline, storyArc: data.storyArc, slideOutline: data.slideOutline, talkTrack: data.talkTrack });
       resetCreationPrompt();
     },
     onError: () => {
@@ -837,9 +749,9 @@ function OpportunityCard({ opp, index, model }: { opp: ThoughtLeadershipOpportun
         body.content = preview.content;
       } else if (preview.type === "webinar") {
         body.content = preview.abstract || "";
-        body.slidesContent = preview.slidesRaw || "";
+        body.slidesContent = JSON.stringify(preview.slideOutline || []);
       } else {
-        body.content = preview.content;
+        body.content = JSON.stringify(preview.slideOutline || []);
       }
       const res = await apiRequest("POST", "/api/thought-leadership/save-to-drive", body);
       return res.json();
@@ -1160,23 +1072,6 @@ function OpportunityCard({ opp, index, model }: { opp: ThoughtLeadershipOpportun
                       />
                     </div>
                   )}
-                  {(creationMode === "webinar" || creationMode === "presentation") && slideTemplates && slideTemplates.length > 1 && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-[11px] text-muted-foreground whitespace-nowrap">Design Template:</span>
-                      <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
-                        <SelectTrigger className="h-8 text-xs flex-1" data-testid="select-design-template">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {slideTemplates.map(t => (
-                            <SelectItem key={t.name} value={t.name} data-testid={`option-template-${t.name.toLowerCase().replace(/\s+/g, "-")}`}>
-                              {t.name} ({t.count} designs)
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
                   <div className="flex gap-2 justify-end">
                     <div className="flex gap-1">
                       <Button
@@ -1299,7 +1194,7 @@ function OpportunityCard({ opp, index, model }: { opp: ThoughtLeadershipOpportun
                 if (preview.type === "blog") {
                   blogMutation.mutate({ name: documentName || defaultNames.blog, refinement: feedback, previousContent: preview.content });
                 } else if (preview.type === "webinar") {
-                  webinarMutation.mutate({ name: documentName || defaultNames.webinar, refinement: feedback, previousContent: JSON.stringify({ abstract: preview.abstract, slidesRaw: preview.slidesRaw }) });
+                  webinarMutation.mutate({ name: documentName || defaultNames.webinar, refinement: feedback, previousContent: JSON.stringify({ abstract: preview.abstract, talkTrack: preview.talkTrack, storyArc: preview.storyArc }) });
                 } else {
                   presentationMutation.mutate({ name: documentName || defaultNames.presentation, targetAudience: presentationAudience, refinement: feedback, previousContent: preview.content });
                 }
@@ -2168,7 +2063,7 @@ export default function ThoughtLeadershipPage() {
                   </Button>
                 )}
                 <Button
-                  onClick={() => generateMutation.mutate()}
+                  onClick={() => generateMutation.mutate(undefined)}
                   disabled={generateMutation.isPending}
                   size="sm"
                   data-testid="button-generate-tl"
@@ -2242,7 +2137,7 @@ export default function ThoughtLeadershipPage() {
                 Generate an analysis to discover executive-level content opportunities based on current market trends and Demandbase's strategic position.
               </p>
               <Button
-                onClick={() => generateMutation.mutate()}
+                onClick={() => generateMutation.mutate(undefined)}
                 disabled={generateMutation.isPending}
                 data-testid="button-generate-tl-empty"
               >

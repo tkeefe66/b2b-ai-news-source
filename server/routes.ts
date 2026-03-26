@@ -15,14 +15,37 @@ import { upload, chunkUpload, handleChunkUpload, extractTextFromFile, extractTex
 import { analyzeImages, analyzeVideoFrames } from "./image-analyzer";
 import fs from "fs";
 import sharp from "sharp";
-import { getBrandGuidelinesContext, getDeckSystemPrompt } from "./brand-guidelines";
+import { getBrandGuidelinesContext, getPresentationSystemPrompt } from "./brand-guidelines";
 import { generateDigestsForNewArticles } from "./digest";
-import { createGoogleDoc, createGoogleSlides, parseAIContentToSlides, listDriveFiles, downloadDriveFile } from "./google-drive";
+import { createGoogleDoc, createGoogleSlides, listDriveFiles, downloadDriveFile } from "./google-drive";
 import { ensureCompatibleFormat, speechToText } from "./replit_integrations/audio/client";
 
 export let lastFeedFetchAt: string | null = null;
 export function setLastFeedFetchAt() { lastFeedFetchAt = new Date().toISOString(); }
 import express from "express";
+
+function parseMarkdownToSlides(markdown: string): Array<{ title: string; body: string; speakerNotes?: string }> {
+  const slides: Array<{ title: string; body: string; speakerNotes?: string }> = [];
+  const sections = markdown.split(/^##\s+/m).filter(s => s.trim());
+  for (const section of sections) {
+    const lines = section.split("\n");
+    const title = lines[0].replace(/\[.*?\]\s*/g, "").trim();
+    const bodyLines: string[] = [];
+    let notes = "";
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i];
+      if (line.startsWith("NOTES:")) {
+        notes = line.replace("NOTES:", "").trim();
+      } else {
+        bodyLines.push(line);
+      }
+    }
+    if (title) {
+      slides.push({ title, body: bodyLines.join("\n").trim(), speakerNotes: notes || undefined });
+    }
+  }
+  return slides.length > 0 ? slides : [{ title: "Slide", body: markdown.substring(0, 500) }];
+}
 
 function parseAIJson(text: string | null | undefined): any {
   let cleaned = (text || "{}").trim();
@@ -79,14 +102,6 @@ Every numeric value you use — percentages, multipliers, dollar amounts, growth
 - In the NOTES, list each metric used on the slide with its source: "73% stat from TechCrunch, March 2026" or "88% figure from Gartner, general industry data" or "3X conversion from Demandbase customer data"
 - If a metric comes from general knowledge (not a tracked article), note it: "Industry stat from Forrester, general industry data"
 - NEVER use a numeric metric on a slide without citing its source in the NOTES. If you cannot identify the source of a number, do not use it.`;
-
-async function getApprovedLayoutTypes(designTemplate?: string): Promise<string[]> {
-  const designs = await storage.getApprovedSlideDesigns();
-  const filtered = designTemplate
-    ? designs.filter(d => (d.designTemplate || "Classic") === designTemplate)
-    : designs;
-  return [...new Set(filtered.map(d => d.layoutType))];
-}
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -1712,11 +1727,40 @@ ${creatorAnswers.map(a => `Q: ${a.question}\nA: ${a.answer}`).join("\n\n")}` : "
     }
   });
 
-  async function generateWebinarContent(params: { title: string; thesis: string; demandbase_angle: string; talking_points: string[]; audience: string; timeliness: string; refinement?: string; previousContent?: string; designTemplate?: string; creatorAnswers?: { question: string; answer: string }[]; model?: string }) {
-    const { title, thesis, demandbase_angle, talking_points, audience, timeliness, refinement, previousContent, designTemplate, creatorAnswers, model: requestedModel } = params;
+  type PresentationContent = {
+    headline: string;
+    storyArc: string;
+    slideOutline: Array<{ slideNumber: number; title: string; keyPoints: string[]; speakerNotes: string }>;
+    talkTrack: string;
+  };
+
+  function parsePresentationJSON(raw: string): PresentationContent {
+    try {
+      const parsed = JSON.parse(raw);
+      return {
+        headline: parsed.headline || "",
+        storyArc: parsed.storyArc || "",
+        slideOutline: Array.isArray(parsed.slideOutline) ? parsed.slideOutline : [],
+        talkTrack: parsed.talkTrack || "",
+      };
+    } catch {
+      // Fallback if JSON parse fails
+      return { headline: "", storyArc: raw, slideOutline: [], talkTrack: raw };
+    }
+  }
+
+  function slideOutlineToSlideData(slideOutline: PresentationContent["slideOutline"]) {
+    return slideOutline.map(s => ({
+      title: s.title,
+      body: s.keyPoints.join("\n"),
+      speakerNotes: s.speakerNotes,
+    }));
+  }
+
+  async function generateWebinarContent(params: { title: string; thesis: string; demandbase_angle: string; talking_points: string[]; audience: string; timeliness: string; refinement?: string; previousContent?: string; creatorAnswers?: { question: string; answer: string }[]; model?: string }) {
+    const { title, thesis, demandbase_angle, talking_points, audience, timeliness, refinement, previousContent, creatorAnswers, model: requestedModel } = params;
     const selectedModel = resolveModel(requestedModel);
     const dbContext = await getDemandbaseContext();
-    const approvedLayouts = await getApprovedLayoutTypes(designTemplate);
 
     const abstractMessages: { role: "system" | "user" | "assistant"; content: string }[] = [
       {
@@ -1751,9 +1795,8 @@ A compelling 2-3 paragraph overview that explains what attendees will learn and 
 ## Registration CTA
 A compelling 1-2 sentence call-to-action.
 
-Write in a professional, compelling tone that conveys expertise and urgency. The abstract should make the reader feel they'll miss out if they don't attend.
+Write in a professional, compelling tone that conveys expertise and urgency.
 ${NO_DASH_RULE}
-
 ${CITATION_RULES_INLINE}`
       },
       {
@@ -1768,49 +1811,29 @@ Timeliness: ${timeliness || "Current market trends"}
 Key Talking Points:
 ${(talking_points || []).map((tp: string) => `- ${tp}`).join("\n")}${creatorAnswers && creatorAnswers.length > 0 ? `
 
-CREATOR'S PERSPECTIVE AND INPUTS (incorporate these specific viewpoints, examples, and language — this should reflect the creator's authentic voice):
+CREATOR'S PERSPECTIVE AND INPUTS (incorporate these specific viewpoints, examples, and language):
 ${creatorAnswers.map(a => `Q: ${a.question}\nA: ${a.answer}`).join("\n\n")}` : ""}`
       },
     ];
 
-    const slidesMessages: { role: "system" | "user" | "assistant"; content: string }[] = [
+    const contentMessages: { role: "system" | "user" | "assistant"; content: string }[] = [
       {
         role: "system",
-        content: `You are a senior presentation designer at Demandbase creating a detailed webinar slide deck. This deck needs to be 80% presentation-ready — meticulously structured with complete content.
+        content: `You are a senior content strategist at Demandbase.
 
 ${getBrandGuidelinesContext()}
 
 DEMANDBASE CONTEXT:
 ${dbContext.substring(0, 2000)}
 
-${getDeckSystemPrompt(approvedLayouts)}
+${getPresentationSystemPrompt()}
 
-WEBINAR-SPECIFIC INSTRUCTIONS:
-- Create a comprehensive webinar deck with 15-20 slides
-- Follow the deck structure template but adapt for webinar format:
-  1. Title slide — compelling webinar title + subtitle
-  2. [SECTION] Agenda/What We'll Cover
-  3. [CONTENT] The Problem/Challenge — what's changing in the market
-  4. [STATS] Market data that proves the urgency
-  5. [CONTENT] Why traditional approaches are failing
-  6. [SECTION] The New Framework/Approach
-  7. 3-4 slides covering core concepts (mix [CONTENT], [CALLOUT], [COMPARISON])
-  8. [SECTION] Practical Application
-  9. [CONTENT] Implementation guidance + real-world examples
-  10. [CALLOUT] Key best practices
-  11. [STATS] Results/impact data
-  12. [STATEMENT] Bold closing statement
-  13. [SECTION] Q&A
-- Every slide must have substantial, specific content — not placeholders
-- Include actual talking points, real industry data, specific frameworks, and actionable advice
-- This must be 80% ready to present
-
-${CITATION_RULES_SLIDES}
+This is a WEBINAR format: generate 15-20 slides in slideOutline. Include audience engagement moments and a Q&A framing slide in speaker notes.
 ${NO_DASH_RULE}`
       },
       {
         role: "user",
-        content: `Create a comprehensive webinar slide deck for:
+        content: `Create webinar content for:
 
 Title: ${title}
 Target Audience: ${audience || "B2B marketing and sales executives"}
@@ -1820,7 +1843,7 @@ Timeliness: ${timeliness || "Current market trends"}
 Key Talking Points:
 ${(talking_points || []).map((tp: string) => `- ${tp}`).join("\n")}${creatorAnswers && creatorAnswers.length > 0 ? `
 
-CREATOR'S PERSPECTIVE AND INPUTS (weave these specific viewpoints, stories, and examples into the deck content and speaker notes):
+CREATOR'S PERSPECTIVE AND INPUTS (weave these specific viewpoints, stories, and examples throughout):
 ${creatorAnswers.map(a => `Q: ${a.question}\nA: ${a.answer}`).join("\n\n")}` : ""}`
       },
     ];
@@ -1832,104 +1855,22 @@ ${creatorAnswers.map(a => `Q: ${a.question}\nA: ${a.answer}`).join("\n\n")}` : "
           abstractMessages.push({ role: "assistant", content: prev.abstract });
           abstractMessages.push({ role: "user", content: `Please revise the webinar abstract with the following feedback:\n\n${refinement}` });
         }
-        if (prev.slidesRaw) {
-          slidesMessages.push({ role: "assistant", content: prev.slidesRaw });
-          slidesMessages.push({ role: "user", content: `Please revise the webinar slide deck with the following feedback:\n\n${refinement}` });
+        if (prev.talkTrack || prev.storyArc) {
+          const prevContentStr = JSON.stringify({ headline: prev.headline, storyArc: prev.storyArc, slideOutline: prev.slideOutline, talkTrack: prev.talkTrack });
+          contentMessages.push({ role: "assistant", content: prevContentStr });
+          contentMessages.push({ role: "user", content: `Please revise the webinar content with the following feedback:\n\n${refinement}` });
         }
       } catch {}
     }
 
-    const [abstractContent, slidesRaw] = await Promise.all([
+    const [abstractContent, contentRaw] = await Promise.all([
       chatCompletion({ model: selectedModel, messages: abstractMessages, maxTokens: 3000 }),
-      chatCompletion({ model: selectedModel, messages: slidesMessages, maxTokens: 10000 }),
+      chatCompletion({ model: selectedModel, messages: contentMessages, maxTokens: 12000 }),
     ]);
 
-    return { abstract: abstractContent, slidesRaw };
+    const presentationContent = parsePresentationJSON(contentRaw);
+    return { abstract: abstractContent, ...presentationContent };
   }
-
-  const PRESENTATION_STYLES: Record<string, { label: string; slideCount: string; duration: string; structure: string; tone: string; emphasis: string }> = {
-    "executive-briefing": {
-      label: "Executive Briefing",
-      slideCount: "8-12",
-      duration: "15-20 minute",
-      structure: `
-  1. Title slide with opening hook (~1 min)
-  2. [STATEMENT] The one thing that matters (~1 min)
-  3. [STATS] 2-3 metrics that frame the business case (~2 min)
-  4. [CONTENT] The strategic shift — framed as risk/opportunity (~3 min)
-  5. [COMPARISON] Current state vs recommended approach (~2 min)
-  6. [CALLOUT] 3 strategic priorities (~3 min)
-  7. [STATS] Expected outcomes/ROI (~2 min)
-  8. [CONTENT] Recommended next steps with timeline (~3 min)
-  9. [STATEMENT] Memorable closing statement (~1 min)`,
-      tone: "Strategic, concise, outcome-focused. Executives have limited time. Every slide must pass the 'so what?' test. Lead with business impact, not technical details. Use board-level language.",
-      emphasis: "Focus on ROI, strategic positioning, competitive risk, and business outcomes. Skip implementation details. Use big-picture frameworks and industry benchmarks. Every metric should tie to revenue, efficiency, or market position.",
-    },
-    "sales-enablement": {
-      label: "Sales Enablement",
-      slideCount: "12-16",
-      duration: "30 minute",
-      structure: `
-  1. Title slide with competitive hook (~1 min)
-  2. [STATEMENT] The prospect's core pain point (~1 min)
-  3. [CONTENT] Market context that validates the pain (~3 min)
-  4. [STATS] Proof points showing the cost of the problem (~2 min)
-  5. [SECTION] The Solution
-  6. [CONTENT] How Demandbase solves this specifically (~4 min)
-  7. [CALLOUT] Key differentiators vs competitors (~3 min)
-  8. [OBJECTION] Top 2-3 objections with responses (~3 min)
-  9. [QUOTE] Customer proof point with specific metrics (~2 min)
-  10. [COMPARISON] Demandbase vs alternative approaches (~3 min)
-  11. [CONTENT] Implementation approach and quick wins (~3 min)
-  12. [STATS] Customer ROI data (~2 min)
-  13. [STATEMENT] Closing call to action (~1 min)`,
-      tone: "Confident, consultative, competitive. This is a sales tool. Focus on buyer objections, competitive differentiation, and customer proof. Use discovery-style questions in speaker notes. Be direct about why Demandbase wins.",
-      emphasis: "Heavy on competitive positioning (vs 6sense, HubSpot, etc.), objection handling, customer proof points with specific metrics, and clear differentiation. Include discovery questions in NOTES. Make every slide a conversation starter.",
-    },
-    "thought-leadership": {
-      label: "Thought Leadership",
-      slideCount: "12-16",
-      duration: "30 minute",
-      structure: `
-  1. Title slide with opening hook (~1 min)
-  2. [STATEMENT] Bold opening statement that captures attention (~1 min)
-  3. [CONTENT] The challenge/problem with market context (~3 min)
-  4. [STATS] Data that proves the urgency (~2 min)
-  5. [SECTION] The Core Idea/Framework
-  6. [CONTENT] Main concept with depth (~4 min)
-  7. [CONTENT] Supporting evidence and examples (~3 min)
-  8. [COMPARISON] Old way vs New way (~3 min)
-  9. [SECTION] Making It Real
-  10. [CONTENT] Practical application (~4 min)
-  11. [CALLOUT] Key actions/takeaways (~3 min)
-  12. [CONTENT] How to get started (~3 min)
-  13. [STATEMENT] Memorable closing statement (~2 min)`,
-      tone: "Visionary, authoritative, narrative-driven. Build a story arc that positions Demandbase as the thought leader. Use industry trends and original frameworks. Make the audience think differently about their challenges.",
-      emphasis: "Focus on market trends, paradigm shifts, and original frameworks. Use storytelling with a clear narrative arc. Reference industry data and emerging trends. Position Demandbase as the expert, not just the vendor.",
-    },
-    "technical-deep-dive": {
-      label: "Technical Deep-Dive",
-      slideCount: "14-18",
-      duration: "40 minute",
-      structure: `
-  1. Title slide (~1 min)
-  2. [CONTENT] Problem definition with technical context (~3 min)
-  3. [STATS] Scale/complexity metrics that motivate the solution (~2 min)
-  4. [SECTION] Architecture & Approach
-  5. [CONTENT] Technical architecture or methodology (~5 min)
-  6. [CONTENT] Key technical capabilities in detail (~4 min)
-  7. [CALLOUT] Integration points and data flows (~3 min)
-  8. [COMPARISON] Technical comparison with alternatives (~4 min)
-  9. [SECTION] Implementation
-  10. [CONTENT] Implementation methodology and best practices (~5 min)
-  11. [CONTENT] Common patterns and use cases (~4 min)
-  12. [STATS] Performance benchmarks and results (~3 min)
-  13. [CALLOUT] Technical requirements and prerequisites (~3 min)
-  14. [CONTENT] Roadmap and future capabilities (~3 min)`,
-      tone: "Detailed, precise, evidence-based. This audience wants to understand HOW things work, not just WHAT they do. Use technical terminology appropriately. Include architecture patterns, data flows, and integration details.",
-      emphasis: "Focus on architecture, APIs, data models, integration patterns, performance benchmarks, and technical capabilities. Include specific product features and technical differentiators. Use diagrams described in text form. Reference documentation and technical specs.",
-    },
-  };
 
   async function getRelevantArticleContext(title: string, thesis: string, talkingPoints: string[]): Promise<string> {
     try {
@@ -1986,13 +1927,11 @@ ${creatorAnswers.map(a => `Q: ${a.question}\nA: ${a.answer}`).join("\n\n")}` : "
     }
   }
 
-  async function generatePresentationContent(params: { title: string; thesis: string; demandbase_angle: string; talking_points: string[]; audience: string; timeliness: string; targetAudience?: string; refinement?: string; previousContent?: string; designTemplate?: string; creatorAnswers?: { question: string; answer: string }[]; presentationStyle?: string; model?: string }) {
-    const { title, thesis, demandbase_angle, talking_points, audience, timeliness, targetAudience, refinement, previousContent, designTemplate, creatorAnswers, presentationStyle = "thought-leadership", model: requestedModel } = params;
+  async function generatePresentationContent(params: { title: string; thesis: string; demandbase_angle: string; talking_points: string[]; audience: string; timeliness: string; targetAudience?: string; refinement?: string; previousContent?: string; creatorAnswers?: { question: string; answer: string }[]; model?: string }): Promise<PresentationContent> {
+    const { title, thesis, demandbase_angle, talking_points, audience, timeliness, targetAudience, refinement, previousContent, creatorAnswers, model: requestedModel } = params;
     const selectedModel = resolveModel(requestedModel);
     const presentationAudience = targetAudience || audience;
     const dbContext = await getDemandbaseContext();
-    const approvedLayouts = await getApprovedLayoutTypes(designTemplate);
-    const style = PRESENTATION_STYLES[presentationStyle] || PRESENTATION_STYLES["thought-leadership"];
 
     const [articleContext, kbContext] = await Promise.all([
       getRelevantArticleContext(title, thesis, talking_points),
@@ -2002,13 +1941,7 @@ ${creatorAnswers.map(a => `Q: ${a.question}\nA: ${a.answer}`).join("\n\n")}` : "
     const messages: { role: "system" | "user" | "assistant"; content: string }[] = [
       {
         role: "system",
-        content: `You are a senior presentation strategist at Demandbase creating a ${style.duration} ${style.label} deck. This deck needs to be 80% presentation-ready with complete, audience-tailored content.
-
-PRESENTATION STYLE: ${style.label.toUpperCase()}
-${style.tone}
-
-STYLE-SPECIFIC GUIDANCE:
-${style.emphasis}
+        content: `You are a senior presentation strategist at Demandbase.
 
 ${getBrandGuidelinesContext()}
 
@@ -2017,34 +1950,27 @@ ${dbContext.substring(0, 2000)}
 ${kbContext}
 ${articleContext}
 
-${getDeckSystemPrompt(approvedLayouts)}
+${getPresentationSystemPrompt()}
 
 TARGET AUDIENCE: ${presentationAudience}
-Tailor every slide, example, data point, and talking point specifically to this audience. Use language, metrics, and examples that resonate with their role, challenges, and priorities.
+Tailor every element — story arc, slide content, and talk track — specifically to this audience's language, challenges, and priorities.
 
-${style.label.toUpperCase()} DECK STRUCTURE (${style.slideCount} slides, ${style.duration} session):
-${style.structure}
-- Include timing guidance in NOTES (e.g., "~3 minutes on this slide")
-- Include transition phrases and delivery tips in NOTES
-- Every slide must have substantial, audience-specific content with concrete examples and actionable frameworks
-
-${CITATION_RULES_SLIDES}
+This is a PRESENTATION format: generate 10-14 slides in slideOutline. Optimize for a clear narrative arc with a strong opening hook and a concrete closing ask.
 ${NO_DASH_RULE}`
       },
       {
         role: "user",
-        content: `Create a ${style.duration} ${style.label} deck for:
+        content: `Create presentation content for:
 
 Title: ${title}
 Target Audience: ${presentationAudience}
-Presentation Style: ${style.label}
 Core Thesis: ${thesis}
 Demandbase Angle: ${demandbase_angle || "Account-based go-to-market strategy"}
 Timeliness: ${timeliness || "Current market trends"}
 Key Talking Points:
 ${(talking_points || []).map((tp: string) => `- ${tp}`).join("\n")}${creatorAnswers && creatorAnswers.length > 0 ? `
 
-CREATOR'S PERSPECTIVE AND INPUTS (weave these specific viewpoints, stories, and examples into slide content and speaker notes):
+CREATOR'S PERSPECTIVE AND INPUTS (weave these specific viewpoints, stories, and examples throughout):
 ${creatorAnswers.map(a => `Q: ${a.question}\nA: ${a.answer}`).join("\n\n")}` : ""}`
       },
     ];
@@ -2054,11 +1980,8 @@ ${creatorAnswers.map(a => `Q: ${a.question}\nA: ${a.answer}`).join("\n\n")}` : "
       messages.push({ role: "user", content: `Please revise the presentation with the following feedback:\n\n${refinement}` });
     }
 
-    return await chatCompletion({
-      model: selectedModel,
-      messages,
-      maxTokens: 10000,
-    });
+    const raw = await chatCompletion({ model: selectedModel, messages, maxTokens: 12000 });
+    return parsePresentationJSON(raw);
   }
 
   app.post("/api/thought-leadership/generate-webinar", async (req, res) => {
@@ -2068,12 +1991,11 @@ ${creatorAnswers.map(a => `Q: ${a.question}\nA: ${a.answer}`).join("\n\n")}` : "
         return res.status(400).json({ error: "Invalid request", details: parsed.error.errors });
       }
       const result = await generateWebinarContent(parsed.data);
-      const slidesData = parseAIContentToSlides(result.slidesRaw);
-      console.log(`[thought-leadership] Webinar preview generated (abstract: ${result.abstract.length} chars, ${slidesData.length} slides)`);
-      res.json({ abstract: result.abstract, slidesRaw: result.slidesRaw, slides: slidesData });
+      console.log(`[thought-leadership] Webinar generated (${result.slideOutline.length} slides)`);
+      res.json(result);
     } catch (err) {
-      console.error("Error generating webinar preview:", err);
-      res.status(500).json({ error: "Failed to generate webinar preview" });
+      console.error("Error generating webinar:", err);
+      res.status(500).json({ error: "Failed to generate webinar" });
     }
   });
 
@@ -2083,13 +2005,12 @@ ${creatorAnswers.map(a => `Q: ${a.question}\nA: ${a.answer}`).join("\n\n")}` : "
       if (!parsed.success) {
         return res.status(400).json({ error: "Invalid request", details: parsed.error.errors });
       }
-      const slidesRaw = await generatePresentationContent(parsed.data);
-      const slidesData = parseAIContentToSlides(slidesRaw);
-      console.log(`[thought-leadership] Presentation preview generated (${slidesData.length} slides)`);
-      res.json({ slidesRaw, slides: slidesData });
+      const result = await generatePresentationContent(parsed.data);
+      console.log(`[thought-leadership] Presentation generated (${result.slideOutline.length} slides)`);
+      res.json(result);
     } catch (err) {
-      console.error("Error generating presentation preview:", err);
-      res.status(500).json({ error: "Failed to generate presentation preview" });
+      console.error("Error generating presentation:", err);
+      res.status(500).json({ error: "Failed to generate presentation" });
     }
   });
 
@@ -2106,7 +2027,9 @@ ${creatorAnswers.map(a => `Q: ${a.question}\nA: ${a.answer}`).join("\n\n")}` : "
         console.log(`[thought-leadership] Blog saved to Drive: ${doc.url}`);
         res.json({ url: doc.url, id: doc.id });
       } else if (type === "webinar") {
-        const slidesData = slidesContent ? parseAIContentToSlides(slidesContent) : [];
+        let slideOutline: PresentationContent["slideOutline"] = [];
+        try { slideOutline = JSON.parse(slidesContent || "[]"); } catch {}
+        const slidesData = slideOutlineToSlideData(slideOutline);
         const baseName = documentName;
         const [doc, slides] = await Promise.all([
           createGoogleDoc(`Webinar Abstract: ${baseName}`, content),
@@ -2115,7 +2038,9 @@ ${creatorAnswers.map(a => `Q: ${a.question}\nA: ${a.answer}`).join("\n\n")}` : "
         console.log(`[thought-leadership] Webinar saved to Drive — Doc: ${doc.url}, Slides: ${slides.url}`);
         res.json({ docUrl: doc.url, docId: doc.id, slidesUrl: slides.url, slidesId: slides.id });
       } else if (type === "presentation") {
-        const slidesData = parseAIContentToSlides(content);
+        let slideOutline: PresentationContent["slideOutline"] = [];
+        try { slideOutline = JSON.parse(content); } catch {}
+        const slidesData = slideOutlineToSlideData(slideOutline);
         const slides = await createGoogleSlides(documentName, slidesData);
         console.log(`[thought-leadership] Presentation saved to Drive: ${slides.url}`);
         res.json({ url: slides.url, id: slides.id });
@@ -2133,7 +2058,7 @@ ${creatorAnswers.map(a => `Q: ${a.question}\nA: ${a.answer}`).join("\n\n")}` : "
         return res.status(400).json({ error: "Invalid request", details: parsed.error.errors });
       }
       const result = await generateWebinarContent(parsed.data);
-      const slidesData = parseAIContentToSlides(result.slidesRaw);
+      const slidesData = slideOutlineToSlideData(result.slideOutline);
 
       console.log(`[thought-leadership] Webinar content generated. Creating Google Doc (abstract) and Slides (deck)...`);
 
@@ -2161,8 +2086,8 @@ ${creatorAnswers.map(a => `Q: ${a.question}\nA: ${a.answer}`).join("\n\n")}` : "
       if (!parsed.success) {
         return res.status(400).json({ error: "Invalid request", details: parsed.error.errors });
       }
-      const slidesContent = await generatePresentationContent(parsed.data);
-      const slidesData = parseAIContentToSlides(slidesContent);
+      const presentationResult = await generatePresentationContent(parsed.data);
+      const slidesData = slideOutlineToSlideData(presentationResult.slideOutline);
 
       console.log(`[thought-leadership] Presentation generated (${slidesData.length} slides). Creating Google Slides...`);
 
@@ -3291,8 +3216,13 @@ Opportunities: ${tl.opportunities.substring(0, 1000)}`).join("\n")}`;
       const brandGuidelines = getBrandGuidelinesContext();
       const isDeckRequest = contentType === "deck" || /\b(deck|presentation|slides?|pptx?|powerpoint)\b/i.test(message);
       const contentTypeHint = contentType ? `\nThe user is requesting a "${contentType}" type of content. Tailor your output format accordingly.` : "";
-      const approvedLayouts = isDeckRequest ? await getApprovedLayoutTypes() : undefined;
-      const deckPrompt = isDeckRequest ? "\n\n" + getDeckSystemPrompt(approvedLayouts) : "";
+      const deckPrompt = isDeckRequest ? `\n\nWhen creating a deck or presentation, structure your output as slides:
+- Use ## headings for each slide title (one clear, punchy title per slide)
+- Use bullet points for slide content (2-4 concise bullets per slide, under 15 words each)
+- Add a NOTES: line after each slide body with what the presenter should say
+- Keep each slide focused on ONE message
+- Aim for 10-14 slides total with a clear narrative arc: problem → insight → solution → action
+- Do NOT use special layout tags or bracket labels — just clean ## titles and bullets` : "";
 
       const discoverySystemPrompt = `You are a senior Field Enablement strategist at Demandbase conducting a creative briefing session before creating content. You're not just gathering info — you're helping the user THINK THROUGH their request so the final output is exactly what they need.
 
@@ -3372,14 +3302,13 @@ FORMAT YOUR CREATIVE BRIEF AS:
 📐 **Proposed Structure**
 [Numbered outline of sections/slides/sections with 1-line descriptions of what each will cover]
 
-${isDeckRequest ? `For decks, propose specific slide types:
-1. **Title** — [proposed title]
-2. **[SECTION]** — [section name]
-3. **[STATS]** — [what metrics you'll feature]
-4. **[COMPARISON]** — [what you'll compare]
-5. **[OBJECTION]** — [which objections you'll address]
-6. **[CALLOUT]** — [key differentiators]
-7. **[STATEMENT]** — [the bold closing message]
+${isDeckRequest ? `For decks, propose the slide flow:
+1. **Title slide** — [proposed title + opening hook]
+2. **Slide 2** — [what tension/problem this opens with]
+3. **Slide 3-4** — [core insight or framework]
+4. **Slide 5-6** — [evidence, proof points, or customer story]
+5. **Slide 7-8** — [solution/differentiators]
+6. **Slide 9-10** — [how to act on this]
 etc.` : ""}
 
 💡 **Key ingredients I'll include**
@@ -3424,58 +3353,16 @@ ${isDeckRequest ? CITATION_RULES_SLIDES : CITATION_RULES_INLINE}
 IMPORTANT: The user already answered discovery questions in the conversation below. Use ALL of their answers to create highly targeted, specific content. Don't ask more questions — create the deliverable now.
 
 ${isDeckRequest ? `OUTPUT FORMAT — THIS IS A DECK/PRESENTATION:
-You MUST use the layout tag system described above. EVERY slide MUST start with ## [LAYOUT_TAG] Title.
-DO NOT output plain markdown text. DO NOT use markdown tables. DO NOT write paragraphs.
-Each slide gets its own ## header with a [TAG] like [CONTENT], [STATS], [COMPARISON], [OBJECTION], [CALLOUT], [SECTION], [QUOTE], or [STATEMENT].
-
-CRITICAL: You must use AT LEAST 4 different layout types across your deck. Never make every slide [CONTENT].
-
-ABSOLUTE SLIDE DENSITY RULES — STRICTLY ENFORCED:
-- MAX 3 bullet points per [CONTENT] slide. If you need more, create another slide.
-- Each bullet must be ONE short line (under 15 words). No sub-bullets. No nested items.
-- DO NOT include article citations, URLs, or "Market Insight" references on slides. Those go in NOTES only.
-- [STATS] slides: EXACTLY 2-3 lines in format: NUMBER | LABEL (nothing else)
-- [COMPARISON] slides: EXACTLY two sections separated by --- with MAX 4 bullets per column. No extra text.
-- [QUOTE] slides: Line 1 is the quote (1-2 sentences). Line 2 is attribution. Nothing else.
-- [STATEMENT] slides: 1-2 sentences only. This is a big bold statement, not a paragraph.
-- [CALLOUT] slides: 2-4 items. Each item = one heading line + 1-2 bullet details.
-- [OBJECTION] slides: MAX 2-3 objections. Two sections separated by --- (objections then responses).
-- NO markdown tables (| col | col |). Tables cannot render on slides.
-- NO italic text with *asterisks*. Use **bold** only for emphasis.
-- NO sub-bullet indentation. Keep everything flat.
-- If content is too long for one slide, split into TWO slides with (Part 1) / (Part 2) in titles.
-
-For battle cards as decks:
-## Battle Card: [Competitor Name]
-Competitive intelligence for winning against [competitor]
-## [SECTION] The Opportunity
-Where [competitor] falls short
-## [CALLOUT] Quick Wins Against [Competitor]
-[2-3 numbered differentiators with bullet details]
-## [OBJECTION] Common Pushback
-[objections vs responses in two columns]
-## [STATS] Proof Points
-[2-3 customer metrics as NUMBER | LABEL]
-## [COMPARISON] Head-to-Head
-[side by side comparison]
-## [STATEMENT] The Bottom Line
-[One bold sentence about why Demandbase wins]
-## [CONTENT] Talk Track Tips
-[2-3 concise battle tips]
-
-For competitive intel as decks, use a similar structure to battle cards.
-For ROI stories as decks, lead with [STATS] and [QUOTE] slides.
-For general thought leadership decks, follow the Challenge → Solution → Impact structure.
-
-FINAL REMINDER — DO NOT VIOLATE THESE LIMITS:
-[CONTENT]: MAX 3 bullets. Period.
-[CALLOUT]: MAX 3 items, each with 1 heading line + 1-2 detail bullets.
-[COMPARISON]: MAX 4 bullets per column, separated by ---.
-[OBJECTION]: MAX 3 objections per slide.
-[STATS]: EXACTLY 2-3 lines as NUMBER | LABEL.
-[QUOTE]: 1-2 sentence quote + attribution line. Nothing else.
-[STATEMENT]: 1-2 sentences. Nothing else.
-If you need more content, create ADDITIONAL slides. Never exceed per-slide limits.` : `Output format guidelines:
+Structure your output as clean slides using ## headings for slide titles.
+- Each slide starts with ## [Slide Title]
+- Under the title: 2-4 concise bullet points (under 15 words each)
+- Add NOTES: [what the presenter says] after each slide's bullets
+- Keep each slide focused on ONE clear message — if you have more to say, make a new slide
+- Aim for 10-14 slides with a narrative arc: open with tension → build the insight → present the solution → close with a clear action
+- NO layout tags, NO bracket labels, NO rigid format templates — let the content drive the structure
+- For battle cards: open with the competitive opportunity, then quick wins, then objection handling, then proof points
+- For ROI stories: open with the customer challenge, then results, then how they got there
+- For thought leadership: open with the market shift, build the framework, close with the "so what"` : `Output format guidelines:
 - Use markdown formatting (headers, bold, bullet points, numbered lists)
 - For battle cards: structure with "Quick Win", "Objection Handling", "Key Differentiators", "Proof Points", "Battle Tips"
 - For talk tracks: use conversational language with discovery questions
@@ -3589,7 +3476,7 @@ ${NO_DASH_RULE}`}`;
 
       let result: { url: string; id: string };
       if (format === "slides") {
-        const slidesData = parseAIContentToSlides(content);
+        const slidesData = parseMarkdownToSlides(content);
         result = await createGoogleSlides(docTitle, slidesData);
       } else {
         result = await createGoogleDoc(docTitle, content);

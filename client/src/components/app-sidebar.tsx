@@ -1,4 +1,4 @@
-import { Newspaper, Brain, BookOpen, RefreshCw, TrendingUp, FileText, Target, Database, BarChart3, Building2, Lightbulb, LayoutTemplate, Search } from "lucide-react";
+import { Newspaper, Brain, BookOpen, RefreshCw, TrendingUp, FileText, Target, Database, BarChart3, Building2, Lightbulb, Search } from "lucide-react";
 import { useLocation, Link } from "wouter";
 import {
   Sidebar,
@@ -27,7 +27,6 @@ const navItems = [
   { title: "Field Enablement", url: "/enablement", icon: Target },
   { title: "DB POV", url: "/db-pov", icon: Database },
   { title: "Research", url: "/research", icon: Search },
-  { title: "Slide Outlines", url: "/slide-outlines", icon: LayoutTemplate },
   { title: "Sources", url: "/sources", icon: BookOpen },
 ];
 

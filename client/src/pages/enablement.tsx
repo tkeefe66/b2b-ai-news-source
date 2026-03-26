@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Target, Send, Copy, Check, RotateCcw, Swords, MessageSquare, Mail, FileText, BarChart3, Shield, Presentation, ExternalLink, Loader2, ArrowRight, X, Eye, Save, RefreshCw, ChevronLeft, ChevronRight, Clock, Trash2, ChevronDown } from "lucide-react";
+import { Target, Send, Copy, Check, RotateCcw, Swords, MessageSquare, Mail, FileText, BarChart3, Shield, Presentation, ExternalLink, Loader2, ArrowRight, X, Eye, Save, RefreshCw, ChevronRight, Clock, Trash2, ChevronDown } from "lucide-react";
 import { VoiceInputButton } from "@/components/VoiceInputButton";
 import { ModelSelector, useSelectedModel } from "@/components/ModelSelector";
 import MarkdownRenderer from "@/components/MarkdownRenderer";
@@ -48,185 +48,9 @@ type ProbeQuestion = {
   why: string;
 };
 
-interface SlidePreview {
-  title: string;
-  body: string;
-  layout?: string;
-  speakerNotes?: string;
-}
-
 interface EnablementPreview {
   content: string;
   isDeck: boolean;
-  slides?: SlidePreview[];
-}
-
-
-function parseContentToSlides(content: string): SlidePreview[] {
-  const raw = content.replace(/\r\n/g, "\n").trim();
-  let sections = raw.split(/^## /m).filter(s => s.trim());
-  if (sections.length <= 1) {
-    sections = raw.split(/^# /m).filter(s => s.trim());
-  }
-  if (sections.length <= 1) return [];
-
-  return sections.map(section => {
-    const lines = section.split("\n");
-    const titleLine = lines[0]?.trim() || "Untitled";
-    const rest = lines.slice(1);
-
-    let layout = "content";
-    let speakerNotes = "";
-    const bodyLines: string[] = [];
-
-    let inNotes = false;
-    for (const l of rest) {
-      if (/^(NOTES|SPEAKER NOTES|Emphasize|Anchor on|Talking points):/i.test(l.trim()) ||
-          (/speaker\s*notes?/i.test(l) && (l.startsWith("*") || l.startsWith(">")))) {
-        inNotes = true;
-        const noteContent = l.trim()
-          .replace(/^\*\*speaker\s*notes?\*\*:?\s*/i, "")
-          .replace(/^(NOTES|SPEAKER NOTES|Emphasize|Anchor on|Talking points):\s*/i, "")
-          .replace(/^>\s*/, "")
-          .trim();
-        if (noteContent) speakerNotes += noteContent + "\n";
-        continue;
-      }
-      if (inNotes) {
-        if (l.trim() === "" || l.startsWith("#") || l.startsWith("## ")) { inNotes = false; }
-        else { speakerNotes += l.replace(/^>\s*/, "").trim() + "\n"; continue; }
-      }
-      if (/layout:\s*(\w+)/i.test(l)) {
-        const m = l.match(/layout:\s*(\w+)/i);
-        if (m) layout = m[1].toLowerCase();
-        continue;
-      }
-      bodyLines.push(l);
-    }
-
-    if (/title|opening|closing|agenda/i.test(titleLine) && bodyLines.length < 4) layout = "section";
-    if (/stat|metric|number|data/i.test(titleLine)) layout = "stats";
-    if (/vs\.?|versus|comparison|compare/i.test(titleLine)) layout = "comparison";
-    if (/objection/i.test(titleLine)) layout = "objection";
-    if (/quote|testimonial/i.test(titleLine)) layout = "quote";
-    if (/key\s*takeaway|summary|call\s*to\s*action|cta|next\s*step/i.test(titleLine)) layout = "callout";
-
-    return {
-      title: titleLine.replace(/\*\*/g, ""),
-      body: bodyLines.join("\n").trim(),
-      layout,
-      speakerNotes: speakerNotes.trim() || undefined,
-    };
-  });
-}
-
-function SlidePreviewCard({ slide, slideNumber, total }: { slide: SlidePreview; slideNumber: number; total: number }) {
-  const layout = slide.layout || "content";
-  const layoutColors: Record<string, string> = {
-    section: "bg-[#0D1846] text-white",
-    statement: "bg-[#0D1846] text-white",
-    stats: "bg-[#F8FAFC] text-[#0D1846] dark:bg-slate-900 dark:text-white",
-    comparison: "bg-[#F8FAFC] text-[#0D1846] dark:bg-slate-900 dark:text-white",
-    callout: "bg-[#F8FAFC] text-[#0D1846] dark:bg-slate-900 dark:text-white",
-    quote: "bg-[#0D1846] text-white",
-    content: "bg-white text-[#0D1846] dark:bg-slate-900 dark:text-white",
-    objection: "bg-[#F8FAFC] text-[#0D1846] dark:bg-slate-900 dark:text-white",
-  };
-
-  const bgClass = layoutColors[layout] || layoutColors.content;
-  const bodyLines = slide.body.split("\n").filter(l => l.trim());
-
-  return (
-    <div className="border border-border rounded-lg overflow-hidden shadow-sm" data-testid={`slide-preview-${slideNumber}`}>
-      <div className={`aspect-[16/9] p-6 flex flex-col justify-center relative ${bgClass}`}>
-        <div className="absolute top-0 left-0 w-full h-0.5 bg-[#4CA3FF]" />
-        <div className="absolute bottom-0 right-0 w-16 h-1 bg-[#FF7C33] rounded-l" />
-        <div className="text-[10px] uppercase tracking-widest opacity-60 mb-2">{layout}</div>
-        <h3 className={`font-bold mb-3 leading-tight ${layout === "section" || layout === "statement" ? "text-xl text-center" : "text-base"}`}>
-          {slide.title}
-        </h3>
-        {layout === "stats" ? (
-          <div className="grid grid-cols-1 gap-2">
-            {bodyLines.slice(0, 3).map((line, j) => {
-              const parts = line.split("|").map(p => p.trim());
-              return (
-                <div key={j} className="text-center">
-                  <div className="text-2xl font-bold text-[#4CA3FF]">{parts[0]}</div>
-                  {parts[1] && <div className="text-xs opacity-80">{parts[1]}</div>}
-                </div>
-              );
-            })}
-          </div>
-        ) : layout === "comparison" || layout === "objection" ? (
-          <div className={`grid grid-cols-2 gap-3 ${layout === "comparison" ? "divide-x divide-[#4CA3FF]/20" : ""}`}>
-            {(() => {
-              const left: string[] = [];
-              const right: string[] = [];
-              let side = left;
-              bodyLines.forEach(l => { if (l === "---") { side = right; } else { side.push(l); } });
-              return [left, right].map((col, ci) => (
-                <div key={ci} className="space-y-1 px-1">
-                  {col.map((l, li) => {
-                    const cleaned = l.replace(/^[-*]\s*/, "").replace(/\*\*/g, "");
-                    const isBold = l.includes("**") || li === 0;
-                    return <div key={li} className={`text-xs opacity-90 ${isBold ? `font-semibold ${layout === "objection" ? "text-[#FF7C33]" : "text-[#4CA3FF]"}` : ""}`}>{cleaned}</div>;
-                  })}
-                </div>
-              ));
-            })()}
-          </div>
-        ) : layout === "quote" ? (
-          <div className="text-center px-4">
-            {bodyLines[0] && <p className="text-sm italic opacity-90 mb-2">{bodyLines[0].replace(/^[""]|[""]$/g, "")}</p>}
-            {bodyLines[1] && <p className="text-xs text-[#4CA3FF] font-medium">— {bodyLines[1]}</p>}
-          </div>
-        ) : layout === "callout" ? (
-          <div className="space-y-2">
-            {(() => {
-              const items: { heading: string; details: string[] }[] = [];
-              bodyLines.forEach(l => {
-                if (!l.match(/^[-*]/)) { items.push({ heading: l, details: [] }); }
-                else if (items.length > 0) { items[items.length - 1].details.push(l.replace(/^[-*]\s*/, "")); }
-              });
-              return items.slice(0, 4).map((item, j) => (
-                <div key={j} className="flex items-start gap-2">
-                  <span className="shrink-0 w-5 h-5 rounded-full bg-[#FF7C33] text-white text-[10px] font-bold flex items-center justify-center">{j + 1}</span>
-                  <div>
-                    <div className="text-xs font-semibold">{item.heading.replace(/\*\*/g, "")}</div>
-                    {item.details.map((d, di) => <div key={di} className="text-[10px] opacity-75">{d}</div>)}
-                  </div>
-                </div>
-              ));
-            })()}
-          </div>
-        ) : layout === "section" || layout === "statement" ? (
-          <p className="text-center text-sm opacity-90">{bodyLines.join(" ")}</p>
-        ) : (
-          <div className="space-y-1">
-            {bodyLines.slice(0, 6).map((line, j) => (
-              <div key={j} className="flex items-start gap-1.5 text-xs opacity-90">
-                {line.match(/^[-*]/) ? (
-                  <><span className="mt-1 shrink-0 h-1 w-1 rounded-full bg-[#4CA3FF] opacity-80" /><span>{line.replace(/^[-*]\s*/, "")}</span></>
-                ) : (
-                  <span className="font-medium">{line}</span>
-                )}
-              </div>
-            ))}
-            {bodyLines.length > 6 && <div className="text-[10px] opacity-50">+{bodyLines.length - 6} more lines</div>}
-          </div>
-        )}
-      </div>
-      <div className="px-3 py-1.5 bg-muted/30 border-t border-border flex items-center justify-between">
-        <span className="text-[10px] text-muted-foreground">Slide {slideNumber} of {total}</span>
-        {slide.speakerNotes && (
-          <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-            <MessageSquare className="h-2.5 w-2.5" />
-            Speaker notes
-          </span>
-        )}
-      </div>
-    </div>
-  );
 }
 
 function EnablementPreviewModal({
@@ -252,13 +76,6 @@ function EnablementPreviewModal({
 }) {
   const [refineFeedback, setRefineFeedback] = useState("");
   const [showRefineInput, setShowRefineInput] = useState(false);
-  const [currentSlide, setCurrentSlide] = useState(0);
-
-  useEffect(() => {
-    setCurrentSlide(0);
-  }, [preview.content]);
-
-  const slides = preview.slides || [];
 
   return (
     <div className="mt-3 border-orange-200 dark:border-orange-800 border rounded-lg overflow-hidden" data-testid="content-preview-modal">
@@ -318,65 +135,11 @@ function EnablementPreviewModal({
       </div>
 
       <div className="max-h-[500px] overflow-auto">
-        {preview.isDeck && slides.length > 0 ? (
-          <div className="p-4" data-testid="slides-preview-content">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between px-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  disabled={currentSlide === 0}
-                  onClick={() => setCurrentSlide(Math.max(0, currentSlide - 1))}
-                  className="h-7"
-                  data-testid="button-prev-slide"
-                >
-                  <ChevronLeft className="h-3.5 w-3.5 mr-1" />Prev
-                </Button>
-                <span className="text-xs text-muted-foreground">
-                  Slide {currentSlide + 1} of {slides.length}
-                </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  disabled={currentSlide === slides.length - 1}
-                  onClick={() => setCurrentSlide(Math.min(slides.length - 1, currentSlide + 1))}
-                  className="h-7"
-                  data-testid="button-next-slide"
-                >
-                  Next<ChevronRight className="h-3.5 w-3.5 ml-1" />
-                </Button>
-              </div>
-              <SlidePreviewCard slide={slides[currentSlide]} slideNumber={currentSlide + 1} total={slides.length} />
-              {slides[currentSlide]?.speakerNotes && (
-                <div className="border border-border rounded-lg p-3 bg-muted/20">
-                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 font-semibold flex items-center gap-1">
-                    <MessageSquare className="h-3 w-3" />
-                    Speaker Notes
-                  </p>
-                  <p className="text-xs text-foreground/80 leading-relaxed whitespace-pre-line">{slides[currentSlide].speakerNotes}</p>
-                </div>
-              )}
-              <div className="flex gap-1.5 overflow-x-auto pb-2">
-                {slides.map((s, idx) => (
-                  <button
-                    key={idx}
-                    className={`shrink-0 w-16 h-10 rounded border text-[8px] font-medium truncate px-1 transition-colors ${idx === currentSlide ? "border-orange-200 dark:border-orange-800 bg-orange-50/50 dark:bg-orange-950/20 text-orange-700 dark:text-orange-400" : "border-border bg-muted/20 text-muted-foreground hover:bg-muted/40"}`}
-                    onClick={() => setCurrentSlide(idx)}
-                    data-testid={`slide-thumb-${idx}`}
-                  >
-                    {idx + 1}. {s.title.substring(0, 20)}
-                  </button>
-                ))}
-              </div>
-            </div>
+        <div className="p-5 bg-white dark:bg-background border-b border-border" data-testid="content-preview-text">
+          <div className="max-w-2xl mx-auto prose-sm">
+            <MarkdownRenderer content={preview.content} />
           </div>
-        ) : (
-          <div className="p-5 bg-white dark:bg-background border-b border-border" data-testid="content-preview-text">
-            <div className="max-w-2xl mx-auto prose-sm">
-              <MarkdownRenderer content={preview.content} />
-            </div>
-          </div>
-        )}
+        </div>
       </div>
 
       {!preview.isDeck && (
@@ -735,12 +498,7 @@ export default function Enablement() {
   };
 
   const buildPreviewFromContent = (content: string): EnablementPreview => {
-    const isDeck = isDeckContent;
-    if (isDeck) {
-      const slides = parseContentToSlides(content);
-      return { content, isDeck: true, slides: slides.length > 0 ? slides : undefined };
-    }
-    return { content, isDeck: false };
+    return { content, isDeck: isDeckContent };
   };
 
   const startProbing = async (text: string, contentTypeOverride?: string) => {

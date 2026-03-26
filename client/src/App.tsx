@@ -20,7 +20,6 @@ const Enablement = lazy(() => import("@/pages/enablement"));
 const DbPov = lazy(() => import("@/pages/db-pov"));
 const CompanyAnalysis = lazy(() => import("@/pages/company-analysis"));
 const ThoughtLeadershipPage = lazy(() => import("@/pages/thought-leadership"));
-const SlideOutlines = lazy(() => import("@/pages/slide-outlines"));
 const Research = lazy(() => import("@/pages/research"));
 const NotFound = lazy(() => import("@/pages/not-found"));
 
@@ -45,7 +44,6 @@ function Router() {
         <Route path="/db-pov" component={DbPov} />
         <Route path="/company-analysis" component={CompanyAnalysis} />
         <Route path="/thought-leadership" component={ThoughtLeadershipPage} />
-        <Route path="/slide-outlines" component={SlideOutlines} />
         <Route path="/research" component={Research} />
         <Route component={NotFound} />
       </Switch>
