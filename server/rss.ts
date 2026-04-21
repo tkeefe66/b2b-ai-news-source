@@ -240,7 +240,7 @@ export const DEFAULT_SOURCES = [
     feedUrl: "https://contentmarketinginstitute.com/feed/",
     category: "B2B Mktg & Sales",
     description: "Content marketing strategy, best practices, and research for B2B.",
-    isActive: true,
+    isActive: false, // XML parse error
   },
   {
     name: "Demand Gen Report",
@@ -280,7 +280,7 @@ export const DEFAULT_SOURCES = [
     feedUrl: "https://www.salesloft.com/resources/blog/feed/",
     category: "B2B Mktg & Sales",
     description: "Conversational marketing, revenue orchestration, and sales engagement.",
-    isActive: true,
+    isActive: false, // XML parse error
   },
 
   // === SalesTech & Revenue Operations ===
@@ -314,7 +314,7 @@ export const DEFAULT_SOURCES = [
     feedUrl: "https://www.gong.io/blog/feed/",
     category: "GTM Tech",
     description: "Revenue intelligence, conversation analytics, and sales best practices.",
-    isActive: true,
+    isActive: false, // 404
   },
   {
     name: "Outreach Blog",
@@ -322,7 +322,7 @@ export const DEFAULT_SOURCES = [
     feedUrl: "https://www.outreach.io/blog/rss.xml",
     category: "GTM Tech",
     description: "Sales execution, engagement strategies, and pipeline management insights.",
-    isActive: true,
+    isActive: false, // 404
   },
   {
     name: "Cognism Blog",
@@ -338,7 +338,7 @@ export const DEFAULT_SOURCES = [
     feedUrl: "https://www.pipedrive.com/en/blog/feed",
     category: "GTM Tech",
     description: "CRM tips, sales strategies, and small business sales technology advice.",
-    isActive: true,
+    isActive: false, // XML parse error
   },
 
   // === CRM & Enterprise ===
@@ -356,7 +356,7 @@ export const DEFAULT_SOURCES = [
     feedUrl: "https://pipeline.zoominfo.com/feed",
     category: "GTM Tech",
     description: "Go-to-market intelligence, data quality, and B2B sales & marketing insights.",
-    isActive: true,
+    isActive: false, // 404
   },
 
   // === Demand Gen & ABM ===
@@ -382,7 +382,7 @@ export const DEFAULT_SOURCES = [
     feedUrl: "https://6sense.com/blog/feed/",
     category: "GTM Tech",
     description: "Predictive intelligence, intent data, and AI-driven revenue generation.",
-    isActive: true,
+    isActive: false, // 403 forbidden
   },
 
   // === Industry Analysts & Strategy ===
@@ -408,7 +408,7 @@ export const DEFAULT_SOURCES = [
     feedUrl: "https://www.growandconvert.com/feed/",
     category: "B2B Mktg & Sales",
     description: "ROI-focused content marketing strategies and frameworks for B2B.",
-    isActive: true,
+    isActive: false, // XML parse error
   },
 
   // === MarTech (Email & Automation) ===
@@ -426,7 +426,7 @@ export const DEFAULT_SOURCES = [
     feedUrl: "https://mailchimp.com/resources/feed/",
     category: "GTM Tech",
     description: "Email and marketing automation tips, templates, and strategy guides.",
-    isActive: true,
+    isActive: false, // 404
   },
 
   // === Data & Analytics ===
@@ -444,7 +444,7 @@ export const DEFAULT_SOURCES = [
     feedUrl: "https://supermetrics.com/blog/feed/",
     category: "Data & Analytics",
     description: "Marketing data integration, reporting automation, and analytics strategy.",
-    isActive: true,
+    isActive: false, // 404
   },
 
   // === Google News RSS Feeds ===
@@ -617,7 +617,7 @@ export const DEFAULT_SOURCES = [
     feedUrl: "https://ainewsdaily.com/feed/",
     category: "AI",
     description: "Daily, digestible AI news updates.",
-    isActive: true,
+    isActive: false, // feed not recognized as RSS
   },
   {
     name: "HPCwire",
@@ -633,7 +633,7 @@ export const DEFAULT_SOURCES = [
     feedUrl: "https://analyticsindiamag.com/feed/",
     category: "AI",
     description: "AI trends and developments coverage.",
-    isActive: true,
+    isActive: false, // XML parse error
   },
   {
     name: "Single Grain Blog",

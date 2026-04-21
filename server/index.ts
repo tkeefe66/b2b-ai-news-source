@@ -348,25 +348,41 @@ app.use((req, res, next) => {
         console.error("Auto-seed error (non-fatal):", err);
       }
 
-      const FETCH_INTERVAL_MS = 30 * 60 * 1000;
+      const RSS_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
+      const NEWSAPI_INTERVAL_MS = 4 * 60 * 60 * 1000; // 4 hours (free tier: 100 req/day)
+
       setInterval(async () => {
         try {
-          log("Auto-fetch: starting scheduled feed refresh...");
+          log("Auto-fetch: starting scheduled RSS refresh...");
           const rssResult = await fetchAllFeeds();
-          const newsApiResult = await fetchNewsAPIArticles();
-          const newArticles = rssResult.total + newsApiResult.total;
-          log(`Auto-fetch: ${newArticles} new articles (RSS: ${rssResult.total}, NewsAPI: ${newsApiResult.total})`);
+          log(`Auto-fetch: ${rssResult.total} new articles from RSS`);
           setLastFeedFetchAt();
-          if (newArticles > 0) {
+          if (rssResult.total > 0) {
             await updateSearchVectors().catch(err => {
               console.error("Auto-fetch: error indexing articles:", err);
             });
           }
         } catch (err) {
-          console.error("Auto-fetch error (non-fatal):", err);
+          console.error("Auto-fetch RSS error (non-fatal):", err);
         }
-      }, FETCH_INTERVAL_MS);
-      log(`Auto-fetch scheduled every ${FETCH_INTERVAL_MS / 60000} minutes`);
+      }, RSS_INTERVAL_MS);
+
+      setInterval(async () => {
+        try {
+          log("Auto-fetch: starting scheduled NewsAPI refresh...");
+          const newsApiResult = await fetchNewsAPIArticles();
+          log(`Auto-fetch: ${newsApiResult.total} new articles from NewsAPI (${newsApiResult.errors} errors)`);
+          if (newsApiResult.total > 0) {
+            await updateSearchVectors().catch(err => {
+              console.error("Auto-fetch: error indexing NewsAPI articles:", err);
+            });
+          }
+        } catch (err) {
+          console.error("Auto-fetch NewsAPI error (non-fatal):", err);
+        }
+      }, NEWSAPI_INTERVAL_MS);
+
+      log(`Auto-fetch scheduled: RSS every ${RSS_INTERVAL_MS / 60000} min, NewsAPI every ${NEWSAPI_INTERVAL_MS / 3600000} hrs`);
     },
   );
 })();
