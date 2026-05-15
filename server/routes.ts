@@ -3700,10 +3700,13 @@ ${NO_DASH_RULE}`,
 
       let fullContent = "";
 
-      for await (const text of stream.text_stream) {
+      for await (const event of stream) {
         if (clientDisconnected) break;
-        fullContent += text;
-        res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
+        if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+          const text = event.delta.text;
+          fullContent += text;
+          res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
+        }
       }
 
       if (!clientDisconnected) {
@@ -3794,10 +3797,13 @@ ${NO_DASH_RULE}`,
       });
 
       let fullContent = "";
-      for await (const text of stream.text_stream) {
+      for await (const event of stream) {
         if (clientDisconnected) break;
-        fullContent += text;
-        res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
+        if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+          const text = event.delta.text;
+          fullContent += text;
+          res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
+        }
       }
 
       if (!clientDisconnected) {
@@ -3914,10 +3920,13 @@ ${NO_DASH_RULE}`,
       });
 
       let fullContent = "";
-      for await (const text of stream.text_stream) {
+      for await (const event of stream) {
         if (clientDisconnected) break;
-        fullContent += text;
-        res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
+        if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+          const text = event.delta.text;
+          fullContent += text;
+          res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
+        }
       }
 
       if (!clientDisconnected) {

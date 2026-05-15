@@ -118,9 +118,12 @@ export function registerAudioRoutes(app: Express): void {
 
       let assistantTranscript = "";
 
-      for await (const text of stream.text_stream) {
-        assistantTranscript += text;
-        res.write(`data: ${JSON.stringify({ type: "transcript", data: text })}\n\n`);
+      for await (const event of stream) {
+        if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+          const text = event.delta.text;
+          assistantTranscript += text;
+          res.write(`data: ${JSON.stringify({ type: "transcript", data: text })}\n\n`);
+        }
       }
 
       // Save assistant message
