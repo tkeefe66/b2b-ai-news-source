@@ -9,6 +9,7 @@ import { fetchNewsAPIArticles } from "./newsapi";
 import { storage } from "./storage";
 import { db, pool } from "./db";
 import { sql } from "drizzle-orm";
+import { ensureBriefsTable } from "./morning-brief/ensure-table";
 
 const app = express();
 const httpServer = createServer(app);
@@ -383,6 +384,10 @@ app.use((req, res, next) => {
       }, NEWSAPI_INTERVAL_MS);
 
       log(`Auto-fetch scheduled: RSS every ${RSS_INTERVAL_MS / 60000} min, NewsAPI every ${NEWSAPI_INTERVAL_MS / 3600000} hrs`);
+
+      ensureBriefsTable().catch(err => {
+        console.error("Failed to ensure briefs table (non-fatal):", err);
+      });
     },
   );
 })();

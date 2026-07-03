@@ -1,7 +1,7 @@
 import { db } from "./db";
 import { eq, desc, sql, and, inArray } from "drizzle-orm";
 import {
-  sources, articles, trendAnalyses, trendSnapshots, chatMessages, chatSessions, briefings, knowledgeEntries, companyAnalyses, thoughtLeadership, slideDesigns, pendingKnowledge, enablementContent, articleDigests, productKnowledge, productFeatures, newsapiQueries, tlDocuments, processingJobs, knowledgeReviews, dashboardViews, competitors, trendWatchlist, crawlJobs, crawlPages, crawlEntries,
+  sources, articles, trendAnalyses, trendSnapshots, chatMessages, chatSessions, briefings, knowledgeEntries, companyAnalyses, thoughtLeadership, slideDesigns, pendingKnowledge, enablementContent, articleDigests, productKnowledge, productFeatures, newsapiQueries, tlDocuments, processingJobs, knowledgeReviews, dashboardViews, competitors, trendWatchlist, crawlJobs, crawlPages, crawlEntries, briefs,
   type Source, type InsertSource,
   type Article, type InsertArticle,
   type TrendAnalysis, type InsertTrendAnalysis,
@@ -28,6 +28,7 @@ import {
   type CrawlJob, type InsertCrawlJob,
   type CrawlPage, type InsertCrawlPage,
   type CrawlEntry, type InsertCrawlEntry,
+  type Brief, type InsertBrief,
 } from "@shared/schema";
 
 export interface ArticleFilters {
@@ -94,6 +95,14 @@ export interface IStorage {
   getLatestBriefing(): Promise<Briefing | undefined>;
   createBriefing(briefing: InsertBriefing): Promise<Briefing>;
   deleteBriefing(id: number): Promise<boolean>;
+
+  // Morning Brief
+  getBriefs(limit?: number): Promise<Brief[]>;
+  getBrief(id: number): Promise<Brief | undefined>;
+  getRealBriefByDate(briefDate: string): Promise<Brief | undefined>;
+  getLatestRealBrief(): Promise<Brief | undefined>;
+  createBrief(data: InsertBrief): Promise<Brief>;
+  updateBrief(id: number, data: Partial<InsertBrief>): Promise<Brief | undefined>;
 
   dismissArticle(id: number): Promise<Article | undefined>;
   getDismissalPatterns(): Promise<{ sources: Record<string, number>; categories: Record<string, number>; total: number }>;
@@ -516,6 +525,44 @@ export class DatabaseStorage implements IStorage {
   async deleteBriefing(id: number): Promise<boolean> {
     const result = await db.delete(briefings).where(eq(briefings.id, id)).returning();
     return result.length > 0;
+  }
+
+  // Morning Brief
+  async getBriefs(limit = 30): Promise<Brief[]> {
+    return db.select().from(briefs).orderBy(desc(briefs.createdAt)).limit(limit);
+  }
+
+  async getBrief(id: number): Promise<Brief | undefined> {
+    const [row] = await db.select().from(briefs).where(eq(briefs.id, id));
+    return row;
+  }
+
+  async getRealBriefByDate(briefDate: string): Promise<Brief | undefined> {
+    const [row] = await db
+      .select()
+      .from(briefs)
+      .where(and(eq(briefs.briefDate, briefDate), eq(briefs.manual, false)));
+    return row;
+  }
+
+  async getLatestRealBrief(): Promise<Brief | undefined> {
+    const [row] = await db
+      .select()
+      .from(briefs)
+      .where(eq(briefs.manual, false))
+      .orderBy(desc(briefs.createdAt))
+      .limit(1);
+    return row;
+  }
+
+  async createBrief(data: InsertBrief): Promise<Brief> {
+    const [row] = await db.insert(briefs).values(data).returning();
+    return row;
+  }
+
+  async updateBrief(id: number, data: Partial<InsertBrief>): Promise<Brief | undefined> {
+    const [row] = await db.update(briefs).set(data).where(eq(briefs.id, id)).returning();
+    return row;
   }
 
   async getRecentArticlesByCategory(days = 7): Promise<Record<string, Article[]>> {

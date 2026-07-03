@@ -544,3 +544,25 @@ export const insertCrawlEntrySchema = createInsertSchema(crawlEntries).omit({
 
 export type CrawlEntry = typeof crawlEntries.$inferSelect;
 export type InsertCrawlEntry = z.infer<typeof insertCrawlEntrySchema>;
+
+export const briefs = pgTable("briefs", {
+  id: serial("id").primaryKey(),
+  briefDate: text("brief_date").notNull(), // YYYY-MM-DD in BRIEF_TZ
+  manual: boolean("manual").default(false).notNull(),
+  periodStart: timestamp("period_start"),
+  periodEnd: timestamp("period_end"),
+  payload: text("payload"), // JSON string of BriefPayload (null until composed)
+  status: text("status").notNull().default("pending"), // pending|composed|sent|sent_fallback|failed_compose|failed_send
+  attempts: integer("attempts").notNull().default(0),
+  error: text("error"),
+  sentAt: timestamp("sent_at"),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
+export const insertBriefSchema = createInsertSchema(briefs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type Brief = typeof briefs.$inferSelect;
+export type InsertBrief = z.infer<typeof insertBriefSchema>;
