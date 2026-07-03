@@ -13,8 +13,14 @@ export function getBriefConfig(env: NodeJS.ProcessEnv = process.env): BriefConfi
     .map(s => s.trim())
     .filter(Boolean);
 
+  let hour = env.BRIEF_HOUR ? parseInt(env.BRIEF_HOUR, 10) : 7;
+  if (!(Number.isFinite(hour) && hour >= 0 && hour <= 23)) {
+    console.warn(`BRIEF_HOUR="${env.BRIEF_HOUR}" is invalid (must be an integer 0-23); defaulting to 7`);
+    hour = 7;
+  }
+
   const base = {
-    hour: env.BRIEF_HOUR ? parseInt(env.BRIEF_HOUR, 10) : 7,
+    hour,
     timeZone: env.BRIEF_TZ || "America/Chicago",
     recipients,
     appUrl: env.APP_URL || "http://localhost:5000",

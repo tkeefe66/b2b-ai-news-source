@@ -91,4 +91,45 @@ describe("briefPayloadSchema", () => {
     const result = briefPayloadSchema.safeParse(bad);
     expect(result.success).toBe(false);
   });
+
+  it("rejects a javascript: URL scheme on a top story link", () => {
+    const bad = {
+      ...validPayload,
+      topStories: [{ ...validPayload.topStories[0], link: "javascript:alert(1)" }],
+    };
+    const result = briefPayloadSchema.safeParse(bad);
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects a javascript: URL scheme on a competitorWatch link", () => {
+    const bad = {
+      ...validPayload,
+      competitorWatch: [
+        {
+          ...validPayload.competitorWatch[0],
+          links: [{ title: "evil", url: "javascript:alert(1)" }],
+        },
+      ],
+    };
+    const result = briefPayloadSchema.safeParse(bad);
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects a javascript: URL scheme on a radar link", () => {
+    const bad = {
+      ...validPayload,
+      radar: [{ ...validPayload.radar[0], link: "javascript:alert(1)" }],
+    };
+    const result = briefPayloadSchema.safeParse(bad);
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects a contentIdea.deepLink that is a full external URL", () => {
+    const bad = {
+      ...validPayload,
+      contentIdea: { ...validPayload.contentIdea, deepLink: "https://evil.example" },
+    };
+    const result = briefPayloadSchema.safeParse(bad);
+    expect(result.success).toBe(false);
+  });
 });

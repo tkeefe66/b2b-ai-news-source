@@ -1,5 +1,13 @@
 import { z } from "zod";
 
+// zod v3 `.url()` accepts any WHATWG-parseable URL, including `javascript:` and
+// `data:` schemes. These fields land in `<a href>` in the rendered email and the
+// client archive page, so restrict to http(s) only.
+const httpUrl = z
+  .string()
+  .url()
+  .refine(u => /^https?:\/\//i.test(u), { message: "must be an http(s) URL" });
+
 export const briefPayloadSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   headline: z.string().min(1).max(160),
@@ -17,7 +25,7 @@ export const briefPayloadSchema = z.object({
           })
           .optional(),
         sourceName: z.string().min(1),
-        link: z.string().url(),
+        link: httpUrl,
         articleId: z.number(),
       }),
     )
@@ -27,7 +35,7 @@ export const briefPayloadSchema = z.object({
     z.object({
       competitor: z.string().min(1),
       summary: z.string().min(1),
-      links: z.array(z.object({ title: z.string(), url: z.string() })),
+      links: z.array(z.object({ title: z.string(), url: httpUrl })),
     }),
   ),
   trendPulse: z.array(
@@ -38,13 +46,13 @@ export const briefPayloadSchema = z.object({
     }),
   ),
   radar: z
-    .array(z.object({ title: z.string().min(1), sourceName: z.string(), link: z.string() }))
+    .array(z.object({ title: z.string().min(1), sourceName: z.string(), link: httpUrl }))
     .max(8),
   contentIdea: z
     .object({
       title: z.string().min(1),
       description: z.string().min(1),
-      deepLink: z.string().min(1),
+      deepLink: z.string().regex(/^\//, "must be an app-relative path"),
     })
     .optional(),
   quietDay: z.boolean(),

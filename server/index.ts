@@ -386,11 +386,13 @@ app.use((req, res, next) => {
 
       log(`Auto-fetch scheduled: RSS every ${RSS_INTERVAL_MS / 60000} min, NewsAPI every ${NEWSAPI_INTERVAL_MS / 3600000} hrs`);
 
-      ensureBriefsTable().catch(err => {
-        console.error("Failed to ensure briefs table (non-fatal):", err);
-      });
-
-      startBriefScheduler();
+      ensureBriefsTable()
+        .catch(err => {
+          console.error("Failed to ensure briefs table (non-fatal):", err);
+        })
+        .finally(() => {
+          startBriefScheduler();
+        });
     },
   );
 })();

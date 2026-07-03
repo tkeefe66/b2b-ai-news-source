@@ -4,7 +4,7 @@ import { briefPayloadSchema } from "@shared/brief-payload";
 import { getBriefConfig, type BriefConfig } from "./config";
 import { shouldRunNow, computeWindow, nextAction, zonedParts } from "./schedule-logic";
 import { gatherInputs, composeBrief } from "./composer";
-import { renderBriefEmail, renderFallbackEmail } from "./render-email";
+import { renderBriefEmail, renderFallbackEmail, type RenderedEmail } from "./render-email";
 import { sendEmail } from "./deliver";
 import { blog } from "./log";
 
@@ -20,10 +20,17 @@ function deps(partial: Partial<PipelineDeps> = {}): PipelineDeps {
 }
 
 async function sendStored(brief: Brief, cfg: BriefConfig, d: PipelineDeps): Promise<Brief> {
+  // Build the email first, in its own try block. A deterministic failure here
+  // (corrupt stored payload, or a calendar-invalid date like "2026-13-40" reaching
+  // date-fns) is NOT retryable by trying again — it will fail identically every
+  // tick. Route it into failed_compose instead of failed_send so the next tick
+  // re-enters the existing recompose/fallback ladder rather than looping forever.
+  let email: RenderedEmail;
   try {
-    let email;
     if (brief.payload) {
-      const payload = briefPayloadSchema.parse(JSON.parse(brief.payload));
+      // Override the model-echoed `date` with server truth (brief.briefDate) so a
+      // malformed value from the model can never reach parseISO in the renderer.
+      const payload = { ...briefPayloadSchema.parse(JSON.parse(brief.payload)), date: brief.briefDate };
       email = renderBriefEmail(payload, cfg.appUrl);
     } else {
       // Fallback content: last 24h of headlines, fetched fresh
@@ -34,6 +41,16 @@ async function sendStored(brief: Brief, cfg: BriefConfig, d: PipelineDeps): Prom
       );
       email = renderFallbackEmail(articles, brief.briefDate, cfg.appUrl);
     }
+  } catch (err: any) {
+    blog(`brief ${brief.id} render failed: ${err.message}`);
+    return (await storage.updateBrief(brief.id, {
+      payload: null,
+      status: "failed_compose",
+      error: `render failed: ${err.message}`,
+    }))!;
+  }
+
+  try {
     await d.send(email, cfg.recipients);
     const status = brief.payload ? "sent" : "sent_fallback";
     blog(`brief ${brief.id} (${brief.briefDate}) ${status}`);
@@ -85,32 +102,43 @@ export async function executeAction(
   return sendStored(brief, cfg, d);
 }
 
+// setInterval fires an async callback with no built-in re-entrancy protection: if a
+// compose takes longer than TICK_MS, the next tick would otherwise start a second,
+// concurrent compose/send for the same brief. Guard against that here.
+let tickInFlight = false;
+
 export async function briefTick(now: Date = new Date(), partialDeps: Partial<PipelineDeps> = {}): Promise<void> {
-  const cfg = getBriefConfig();
-  if (!cfg.enabled) return;
+  if (tickInFlight) return;
+  tickInFlight = true;
+  try {
+    const cfg = getBriefConfig();
+    if (!cfg.enabled) return;
 
-  const { run, dateStr, reason } = shouldRunNow(now, cfg);
-  if (!run) return;
+    const { run, dateStr, reason } = shouldRunNow(now, cfg);
+    if (!run) return;
 
-  const existing = await storage.getRealBriefByDate(dateStr);
-  const action = nextAction(existing);
-  if (action === "done") return;
+    const existing = await storage.getRealBriefByDate(dateStr);
+    const action = nextAction(existing);
+    if (action === "done") return;
 
-  blog(`tick: ${dateStr} action=${action} (${reason})`);
-  let brief = existing;
-  if (!brief) {
-    const prev = await storage.getLatestRealBrief();
-    const window = computeWindow(now, prev?.periodEnd ?? null);
-    brief = await storage.createBrief({
-      briefDate: dateStr,
-      manual: false,
-      periodStart: window.periodStart,
-      periodEnd: window.periodEnd,
-      status: "pending",
-      attempts: 0,
-    });
+    blog(`tick: ${dateStr} action=${action} (${reason})`);
+    let brief = existing;
+    if (!brief) {
+      const prev = await storage.getLatestRealBrief();
+      const window = computeWindow(now, prev?.periodEnd ?? null);
+      brief = await storage.createBrief({
+        briefDate: dateStr,
+        manual: false,
+        periodStart: window.periodStart,
+        periodEnd: window.periodEnd,
+        status: "pending",
+        attempts: 0,
+      });
+    }
+    await executeAction(brief, action, cfg, partialDeps);
+  } finally {
+    tickInFlight = false;
   }
-  await executeAction(brief, action, cfg, partialDeps);
 }
 
 export async function runManualBrief(partialDeps: Partial<PipelineDeps> = {}): Promise<Brief> {

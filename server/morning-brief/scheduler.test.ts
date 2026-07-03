@@ -7,6 +7,9 @@ vi.mock("../storage", () => ({
     getArticlesByDateRange: vi.fn().mockResolvedValue([]),
     getCompetitors: vi.fn().mockResolvedValue([]),
     getTrendSnapshots: vi.fn().mockResolvedValue([]),
+    getRealBriefByDate: vi.fn(),
+    getLatestRealBrief: vi.fn(),
+    createBrief: vi.fn(),
   },
 }));
 vi.mock("../demandbase-context", () => ({
@@ -14,8 +17,19 @@ vi.mock("../demandbase-context", () => ({
 }));
 // ai-models instantiates SDK clients at module load; mock so tests never need API keys
 vi.mock("../ai-models", () => ({ chatCompletion: vi.fn() }));
+// briefTick reads config internally (not via injected deps) — mock it so the
+// re-entrancy test has a deterministic, always-enabled, always-due schedule.
+vi.mock("./config", () => ({
+  getBriefConfig: vi.fn(() => ({
+    enabled: true,
+    hour: 0,
+    timeZone: "UTC",
+    recipients: ["tom@example.com"],
+    appUrl: "https://app.example.com",
+  })),
+}));
 
-import { executeAction } from "./scheduler";
+import { executeAction, briefTick } from "./scheduler";
 import { storage } from "../storage";
 
 const cfg = {
@@ -89,6 +103,35 @@ describe("executeAction", () => {
     expect(last.error).toContain("resend 500");
   });
 
+  it("send action with a corrupt stored payload → failed_compose (not failed_send), send never called", async () => {
+    const send = vi.fn();
+    await executeAction(
+      row({ status: "failed_send", payload: '{"corrupt": true}' }),
+      "send",
+      cfg,
+      { send },
+    );
+    expect(send).not.toHaveBeenCalled();
+    const last = vi.mocked(storage.updateBrief).mock.calls.at(-1)![1] as any;
+    expect(last.status).toBe("failed_compose");
+    expect(last.error).toContain("render failed");
+    expect(last.payload).toBeNull();
+  });
+
+  it("send action with a calendar-invalid model-echoed date renders via brief.briefDate and still sends", async () => {
+    const send = vi.fn().mockResolvedValue({ id: "em_4" });
+    const payloadWithBadDate = { ...validPayload, date: "2026-13-40" };
+    await executeAction(
+      row({ status: "failed_send", payload: JSON.stringify(payloadWithBadDate), briefDate: "2026-07-02" }),
+      "send",
+      cfg,
+      { send },
+    );
+    expect(send).toHaveBeenCalledTimes(1);
+    const last = vi.mocked(storage.updateBrief).mock.calls.at(-1)![1] as any;
+    expect(last.status).toBe("sent");
+  });
+
   it("fallback → sends headline email → sent_fallback", async () => {
     const send = vi.fn().mockResolvedValue({ id: "em_3" });
     await executeAction(row({ status: "failed_compose", attempts: 3 }), "fallback", cfg, { send });
@@ -97,5 +140,33 @@ describe("executeAction", () => {
     expect(sentEmail.subject).toContain("headlines");
     const last = vi.mocked(storage.updateBrief).mock.calls.at(-1)![1] as any;
     expect(last.status).toBe("sent_fallback");
+  });
+});
+
+describe("briefTick re-entrancy guard", () => {
+  it("a tick still in flight blocks a concurrent tick from double-composing/double-sending", async () => {
+    let resolveCompose!: (value: typeof validPayload) => void;
+    const composePromise = new Promise<typeof validPayload>(resolve => {
+      resolveCompose = resolve;
+    });
+    const compose = vi.fn().mockReturnValue(composePromise);
+    const send = vi.fn().mockResolvedValue({ id: "em_5" });
+
+    // No existing row for the date → briefTick creates one and composes.
+    vi.mocked(storage.getRealBriefByDate).mockResolvedValue(undefined);
+    vi.mocked(storage.getLatestRealBrief).mockResolvedValue(undefined);
+    vi.mocked(storage.createBrief).mockResolvedValue(row({ id: 55, status: "pending", attempts: 0 }));
+
+    // Monday (weekday) so shouldRunNow's weekend check doesn't short-circuit.
+    const now = new Date("2024-01-01T12:00:00Z");
+
+    const first = briefTick(now, { compose, send });
+    const second = briefTick(now, { compose, send }); // fired while `first` is still awaiting compose
+
+    resolveCompose(validPayload);
+    await Promise.all([first, second]);
+
+    expect(compose).toHaveBeenCalledTimes(1);
+    expect(send).toHaveBeenCalledTimes(1);
   });
 });
