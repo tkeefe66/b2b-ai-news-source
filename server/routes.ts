@@ -17,6 +17,7 @@ import fs from "fs";
 import sharp from "sharp";
 import { getBrandGuidelinesContext, getPresentationSystemPrompt } from "./brand-guidelines";
 import { generateDigestsForNewArticles } from "./digest";
+import { runManualBrief } from "./morning-brief/scheduler";
 import { createGoogleDoc, createGoogleSlides, listDriveFiles, downloadDriveFile } from "./google-drive";
 import { ensureCompatibleFormat, speechToText } from "./replit_integrations/audio/client";
 
@@ -3609,6 +3610,41 @@ ${NO_DASH_RULE}`}`;
     } catch (err) {
       console.error("Error fetching latest briefing:", err);
       res.status(500).json({ error: "Failed to fetch latest briefing" });
+    }
+  });
+
+  // Morning Brief (push email)
+  app.post("/api/brief/send-now", async (_req, res) => {
+    try {
+      const brief = await runManualBrief();
+      res.json(brief);
+    } catch (err: any) {
+      console.error("Error sending manual brief:", err);
+      res.status(500).json({ error: err.message || "Failed to send brief" });
+    }
+  });
+
+  app.get("/api/briefs", async (req, res) => {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 30;
+      const rows = await storage.getBriefs(Number.isNaN(limit) ? 30 : limit);
+      res.json(rows);
+    } catch (err) {
+      console.error("Error fetching briefs:", err);
+      res.status(500).json({ error: "Failed to fetch briefs" });
+    }
+  });
+
+  app.get("/api/briefs/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      if (Number.isNaN(id)) return res.status(400).json({ error: "Invalid brief ID" });
+      const row = await storage.getBrief(id);
+      if (!row) return res.status(404).json({ error: "Brief not found" });
+      res.json(row);
+    } catch (err) {
+      console.error("Error fetching brief:", err);
+      res.status(500).json({ error: "Failed to fetch brief" });
     }
   });
 
