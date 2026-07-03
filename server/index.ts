@@ -10,6 +10,7 @@ import { storage } from "./storage";
 import { db, pool } from "./db";
 import { sql } from "drizzle-orm";
 import { ensureBriefsTable } from "./morning-brief/ensure-table";
+import { startBriefScheduler } from "./morning-brief/scheduler";
 
 const app = express();
 const httpServer = createServer(app);
@@ -388,6 +389,8 @@ app.use((req, res, next) => {
       ensureBriefsTable().catch(err => {
         console.error("Failed to ensure briefs table (non-fatal):", err);
       });
+
+      startBriefScheduler();
     },
   );
 })();
