@@ -21,6 +21,7 @@ const DbPov = lazy(() => import("@/pages/db-pov"));
 const CompanyAnalysis = lazy(() => import("@/pages/company-analysis"));
 const ThoughtLeadershipPage = lazy(() => import("@/pages/thought-leadership"));
 const Research = lazy(() => import("@/pages/research"));
+const MorningBrief = lazy(() => import("@/pages/morning-brief"));
 const NotFound = lazy(() => import("@/pages/not-found"));
 
 function PageLoader() {
@@ -37,6 +38,7 @@ function Router() {
       <Switch>
         <Route path="/" component={NewsFeed} />
         <Route path="/briefing" component={Briefing} />
+        <Route path="/morning-brief" component={MorningBrief} />
         <Route path="/trends" component={Trends} />
         <Route path="/analyst" component={Analyst} />
         <Route path="/sources" component={Sources} />

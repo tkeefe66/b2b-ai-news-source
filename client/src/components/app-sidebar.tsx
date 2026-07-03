@@ -1,4 +1,4 @@
-import { Newspaper, Brain, BookOpen, RefreshCw, TrendingUp, FileText, Target, Database, BarChart3, Building2, Lightbulb, Search } from "lucide-react";
+import { Newspaper, Brain, BookOpen, RefreshCw, TrendingUp, FileText, Target, Database, BarChart3, Building2, Lightbulb, Search, Mail } from "lucide-react";
 import { useLocation, Link } from "wouter";
 import {
   Sidebar,
@@ -20,6 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 const navItems = [
   { title: "News Feed", url: "/", icon: Newspaper },
   { title: "Daily Briefing", url: "/briefing", icon: FileText },
+  { title: "Morning Brief", url: "/morning-brief", icon: Mail },
   { title: "Trends", url: "/trends", icon: BarChart3 },
   { title: "Thought Leadership", url: "/thought-leadership", icon: Lightbulb },
   { title: "Public Company Analysis", url: "/company-analysis", icon: Building2 },
