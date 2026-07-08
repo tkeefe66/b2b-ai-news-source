@@ -25,6 +25,7 @@ const allowlist = [
   "passport",
   "passport-local",
   "pg",
+  "p-retry", // ESM-only; must be bundled — external require() breaks CJS interop
   "stripe",
   "uuid",
   "ws",
