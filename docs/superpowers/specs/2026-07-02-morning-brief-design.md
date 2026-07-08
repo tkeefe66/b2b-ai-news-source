@@ -1,7 +1,7 @@
 # Morning Brief — Push Delivery Design Spec
 
 **Date:** 2026-07-02
-**Status:** Approved pending user spec review
+**Status:** Implemented — in production since 2026-07-08 (see §12 Implementation Addendum)
 **Author:** Tom Keefe + Claude
 
 ---
@@ -226,3 +226,30 @@ Deferred to the team/Slack era, with seams already in place:
 ## 11. Relationship to the v2 Spec
 
 This is not a competing vision. It implements the v2 spec's core principle — "the system delivers intelligence to users; email is the daily entry point" — inside v1 at ~15% of the surface area. The BriefPayload sections mirror the v2 digest email structure (§6 of that spec). If v2 proceeds later, the composer prompt, payload schema, renderers, and everything learned about what makes the email worth reading transfer directly.
+
+---
+
+## 12. Implementation Addendum (as built, 2026-07-02 → 2026-07-08)
+
+Shipped via 10 reviewed tasks + a final whole-branch review; 62 automated tests. First production send: 2026-07-08 (brief #1, delivered via Resend). Deltas from the design above, in the order they were discovered:
+
+**Hardening from the final whole-branch review (commit `f3d93c9`):**
+- **URL scheme enforcement.** zod's `.url()` accepts `javascript:` URLs. All model-generated link fields now use an `httpUrl` refinement (http/https only) and `contentIdea.deepLink` must match `^\/` (app-relative). Blocks a prompt-injection→stored-XSS chain into both the email and archive-page `href` sinks.
+- **Deterministic render-failure escape.** §5's ladder had a gap: a pre-send parse/render error landed in `failed_send` and retried the same doomed render forever, with fallback unreachable. As built, `sendStored` renders in its own try; pre-send failures clear the payload and set `failed_compose`, re-entering the compose→fallback ladder. The rendered date also comes from `brief.brief_date` (server truth), never the model-echoed `payload.date`.
+- **Tick re-entrancy guard.** `briefTick` has a per-process in-flight flag (a compose slower than the 5-min tick can no longer double-compose/double-send). Consequence: **single-replica assumption** — documented in replit.md; multi-replica requires moving the send claim into SQL.
+- **`BRIEF_HOUR` validation.** Non-finite or out-of-range values fall back to 7 with a logged warning (a NaN hour previously meant silent send-at-midnight).
+- **Boot ordering.** `startBriefScheduler()` is chained after `ensureBriefsTable()` settles.
+
+**Production shakedown fixes (first live day, 2026-07-08):**
+- **Composer output cap 4096 → 8192 tokens** (`5e4449e`). Real payloads (URL-heavy JSON) truncated mid-array at 4096; both compose attempts died at the same byte offset. Repair passes cannot fix truncation.
+- **`p-retry` must be bundled** (`c2e583b`). It is ESM-only; the production server is an esbuild CJS bundle with external deps, and the external `require()` failed at runtime (`(0, X.default) is not a function`) while dev/tests passed. Fixed via the bundle allowlist in `script/build.ts`. This constraint applies to any future ESM-only dependency.
+
+**Scope addition (`b592d33`):**
+- §7 said the in-app surface was list + detail + send-now and "nothing else." As built, the `/morning-brief` page also has a collapsible **"How it works"** explainer (schedule, content sources, status meanings, testing/config) that auto-expands when the archive is empty, serving as onboarding for future team members.
+
+**Known follow-ups (non-blocking, from the final review):**
+- `failed_send` retries every 5 minutes until midnight with no backoff cap; p-retry also retries permanent 4xx errors.
+- Fallback email is top-10 by recency, not grouped by category as §5 states.
+- Anthropic calls rely on the SDK's built-in retries plus the attempt ladder rather than an explicit p-retry wrapper (§8 wording).
+- Archive page omits `contentIdea` and quiet-day framing (not a pixel-perfect email twin).
+- A pre-send failure on the fallback-fetch path is labeled `failed_compose` with a "render failed" message (label imprecision only).
