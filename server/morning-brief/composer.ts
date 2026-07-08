@@ -158,7 +158,8 @@ export async function composeBrief(
       { role: "system", content: system },
       { role: "user", content: user },
     ],
-    maxTokens: 4096,
+    // 4096 truncated real payloads mid-array (article URLs tokenize expensively)
+    maxTokens: 8192,
     jsonMode: true,
   });
   let attempt = tryParse(first);
@@ -179,7 +180,8 @@ export async function composeBrief(
         content: `That JSON was invalid: ${attempt.issues}. Return the corrected strict JSON only — no fences, no commentary.`,
       },
     ],
-    maxTokens: 4096,
+    // 4096 truncated real payloads mid-array (article URLs tokenize expensively)
+    maxTokens: 8192,
     jsonMode: true,
   });
   attempt = tryParse(second);
