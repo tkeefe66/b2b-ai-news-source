@@ -10,6 +10,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { format, parseISO } from "date-fns";
 import type { Brief } from "@shared/schema";
 import { briefPayloadSchema, type BriefPayload } from "@shared/brief-payload";
+import { HowBriefWorks } from "@/components/how-brief-works";
 
 const STATUS_LABEL: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   sent: { label: "Sent", variant: "default" },
@@ -156,6 +157,8 @@ export default function MorningBrief() {
             {sendNow.isPending ? "Composing & sending…" : "Send test brief now"}
           </Button>
         </div>
+
+        {!isLoading && <HowBriefWorks defaultOpen={!briefs || briefs.length === 0} />}
 
         {isLoading ? (
           <div className="space-y-3">
