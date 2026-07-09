@@ -5,7 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Target, Send, Copy, Check, RotateCcw, Swords, MessageSquare, Mail, FileText, BarChart3, Shield, Presentation, ExternalLink, Loader2, ArrowRight, X, Eye, Save, RefreshCw, ChevronRight, Clock, Trash2, ChevronDown } from "lucide-react";
 import { VoiceInputButton } from "@/components/VoiceInputButton";
-import { ModelSelector, useSelectedModel } from "@/components/ModelSelector";
+import { ModelSelector, useSelectedModel, MODEL_DISPLAY } from "@/components/ModelSelector";
 import MarkdownRenderer from "@/components/MarkdownRenderer";
 import { SiGoogleslides } from "react-icons/si";
 import { useToast } from "@/hooks/use-toast";
@@ -259,14 +259,6 @@ function getTimeAgo(date: Date): string {
   if (diffDays < 7) return `${diffDays}d ago`;
   return date.toLocaleDateString();
 }
-
-const MODEL_DISPLAY: Record<string, { label: string; color: string }> = {
-  "gpt-4.1-mini": { label: "GPT-4.1 Mini", color: "text-emerald-600 dark:text-emerald-400" },
-  "gpt-4o": { label: "GPT-4o", color: "text-emerald-600 dark:text-emerald-400" },
-  "gemini-2.5-flash": { label: "Gemini 2.5", color: "text-blue-600 dark:text-blue-400" },
-  "claude-sonnet-4-6": { label: "Claude Sonnet", color: "text-amber-600 dark:text-amber-400" },
-  "claude-haiku-4-5": { label: "Claude Haiku", color: "text-amber-600 dark:text-amber-400" },
-};
 
 function HistoryCard({
   item,

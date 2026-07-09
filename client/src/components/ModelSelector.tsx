@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Brain } from "lucide-react";
@@ -10,10 +10,25 @@ interface AIModel {
   description: string;
 }
 
+// Must be a model the server actually serves (see AVAILABLE_MODELS in server/ai-models.ts);
+// the server silently falls back to this id when given an unknown model.
+export const DEFAULT_MODEL = "claude-haiku-4-5-20251001";
+
+// Single source of truth for model badges. Includes legacy ids that still
+// exist on old sessions/snapshots in the database.
+export const MODEL_DISPLAY: Record<string, { label: string; color: string; badge: string }> = {
+  "claude-haiku-4-5-20251001": { label: "Claude Haiku", color: "text-amber-700 dark:text-amber-400", badge: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200" },
+  "claude-sonnet-4-6": { label: "Claude Sonnet", color: "text-amber-700 dark:text-amber-400", badge: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200" },
+  "gemini-2.5-flash": { label: "Gemini 2.5 Flash", color: "text-blue-700 dark:text-blue-400", badge: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200" },
+  "claude-haiku-4-5": { label: "Claude Haiku", color: "text-amber-700 dark:text-amber-400", badge: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200" },
+  "gpt-4.1-mini": { label: "GPT-4.1 Mini", color: "text-emerald-700 dark:text-emerald-400", badge: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" },
+  "gpt-4o": { label: "GPT-4o", color: "text-emerald-700 dark:text-emerald-400", badge: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" },
+};
+
 const PROVIDER_COLORS: Record<string, string> = {
-  openai: "text-emerald-600 dark:text-emerald-400",
-  gemini: "text-blue-600 dark:text-blue-400",
-  anthropic: "text-amber-600 dark:text-amber-400",
+  openai: "text-emerald-700 dark:text-emerald-400",
+  gemini: "text-blue-700 dark:text-blue-400",
+  anthropic: "text-amber-700 dark:text-amber-400",
 };
 
 const PROVIDER_LABELS: Record<string, string> = {
@@ -22,7 +37,7 @@ const PROVIDER_LABELS: Record<string, string> = {
   anthropic: "Anthropic",
 };
 
-export function useSelectedModel(storageKey: string, defaultModel = "gpt-4.1-mini") {
+export function useSelectedModel(storageKey: string, defaultModel = DEFAULT_MODEL) {
   const [model, setModelState] = useState<string>(() => {
     if (typeof window !== "undefined") {
       return localStorage.getItem(storageKey) || defaultModel;
@@ -50,6 +65,14 @@ export function ModelSelector({
   const { data: models } = useQuery<AIModel[]>({
     queryKey: ["/api/models"],
   });
+
+  // Heal stale selections (e.g. a localStorage value for a model the server no
+  // longer offers) so the trigger never renders empty.
+  useEffect(() => {
+    if (models && models.length > 0 && !models.some(m => m.id === value)) {
+      onChange(models[0].id);
+    }
+  }, [models, value, onChange]);
 
   if (!models) return null;
 

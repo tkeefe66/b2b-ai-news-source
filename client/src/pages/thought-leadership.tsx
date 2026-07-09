@@ -17,7 +17,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { VoiceInputButton } from "@/components/VoiceInputButton";
 import { GoogleDrivePickerButton } from "@/components/google-drive-picker";
-import { ModelSelector, useSelectedModel } from "@/components/ModelSelector";
+import { ModelSelector, useSelectedModel, MODEL_DISPLAY } from "@/components/ModelSelector";
 import MarkdownRenderer, { renderInline } from "@/components/MarkdownRenderer";
 import type { ThoughtLeadership } from "@shared/schema";
 
@@ -30,14 +30,6 @@ interface TLSummaryItem {
   model?: string | null;
   createdAt: string | Date;
 }
-
-const MODEL_DISPLAY: Record<string, { label: string; color: string }> = {
-  "gpt-4.1-mini": { label: "GPT-4.1 Mini", color: "text-emerald-600 dark:text-emerald-400" },
-  "gpt-4o": { label: "GPT-4o", color: "text-emerald-600 dark:text-emerald-400" },
-  "gemini-2.5-flash": { label: "Gemini 2.5", color: "text-blue-600 dark:text-blue-400" },
-  "claude-sonnet-4-6": { label: "Claude Sonnet", color: "text-amber-600 dark:text-amber-400" },
-  "claude-haiku-4-5": { label: "Claude Haiku", color: "text-amber-600 dark:text-amber-400" },
-};
 
 function getTimeAgo(date: Date): string {
   const now = new Date();

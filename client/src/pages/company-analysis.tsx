@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { VoiceInputButton } from "@/components/VoiceInputButton";
-import { ModelSelector, useSelectedModel } from "@/components/ModelSelector";
+import { ModelSelector, useSelectedModel, MODEL_DISPLAY } from "@/components/ModelSelector";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Building2,
@@ -363,7 +363,7 @@ function AnalysisCard({ analysis, onDelete }: { analysis: CompanyAnalysis; onDel
                   {new Date(analysis.createdAt).toLocaleDateString()}
                 </span>
                 {analysis.model && (
-                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${(MODEL_DISPLAY[analysis.model] || { color: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200" }).color}`} data-testid={`badge-model-${analysis.id}`}>
+                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${(MODEL_DISPLAY[analysis.model] || { badge: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200" }).badge}`} data-testid={`badge-model-${analysis.id}`}>
                     {(MODEL_DISPLAY[analysis.model] || { label: analysis.model }).label}
                   </span>
                 )}
@@ -443,14 +443,6 @@ function AnalysisCard({ analysis, onDelete }: { analysis: CompanyAnalysis; onDel
     </Card>
   );
 }
-
-const MODEL_DISPLAY: Record<string, { label: string; color: string }> = {
-  "gpt-4.1-mini": { label: "GPT-4.1 Mini", color: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" },
-  "gpt-4o": { label: "GPT-4o", color: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" },
-  "gemini-2.5-flash": { label: "Gemini 2.5 Flash", color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200" },
-  "claude-sonnet-4-6": { label: "Claude Sonnet", color: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200" },
-  "claude-haiku-4-5": { label: "Claude Haiku", color: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200" },
-};
 
 export default function CompanyAnalysisPage() {
   const [website, setWebsite] = useState("");
