@@ -53,7 +53,7 @@ function stripVerdictLine(text: string): string {
 function CitationRef({ num }: { num: string }) {
   return (
     <sup
-      className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 cursor-default ml-[1px] align-super"
+      className="text-[10px] font-bold text-primary cursor-default ml-[1px] align-super"
       title={`Source [${num}]`}
       data-testid={`citation-ref-${num}`}
     >[{num}]</sup>
@@ -104,7 +104,7 @@ function RichText({ text }: { text: string }) {
           }
           const isProduct = /^(Demandbase One|Advertising|Data)$/i.test(part.trim());
           if (isProduct) {
-            return <span key={i} className="font-bold text-indigo-600 dark:text-indigo-400">{renderWithCitations(part, `p${i}`)}</span>;
+            return <span key={i} className="font-bold text-primary">{renderWithCitations(part, `p${i}`)}</span>;
           }
           return <strong key={i} className="font-semibold text-foreground">{renderWithCitations(part, `b${i}`)}</strong>;
         }
@@ -119,13 +119,13 @@ const COLOR_SETS: Record<string, { text: string; bg: string }> = {
   "text-blue-600 dark:text-blue-400": { text: "text-blue-600 dark:text-blue-400", bg: "bg-blue-500" },
   "text-green-600 dark:text-green-400": { text: "text-green-600 dark:text-green-400", bg: "bg-green-500" },
   "text-amber-600 dark:text-amber-400": { text: "text-amber-600 dark:text-amber-400", bg: "bg-amber-500" },
-  "text-indigo-600 dark:text-indigo-400": { text: "text-indigo-600 dark:text-indigo-400", bg: "bg-indigo-500" },
+  "text-primary": { text: "text-primary", bg: "bg-primary" },
 };
 
 function MarkdownRenderer({ content, sectionColor }: { content: string; sectionColor?: string }) {
   const lines = content.split("\n");
-  const key = sectionColor || "text-indigo-600 dark:text-indigo-400";
-  const colors = COLOR_SETS[key] || { text: key, bg: "bg-indigo-500" };
+  const key = sectionColor || "text-primary";
+  const colors = COLOR_SETS[key] || { text: key, bg: "bg-primary" };
   return (
     <div className="space-y-2 text-sm leading-relaxed text-muted-foreground">
       {lines.map((line, i) => {
@@ -191,7 +191,7 @@ const SECTION_COLORS: Record<string, { icon: string; heading: string }> = {
   "Strategic Direction": { icon: "text-blue-500", heading: "text-blue-600 dark:text-blue-400" },
   "Growth Signals": { icon: "text-green-500", heading: "text-green-600 dark:text-green-400" },
   "Risks & Challenges": { icon: "text-amber-500", heading: "text-amber-600 dark:text-amber-400" },
-  "Demandbase Opportunity": { icon: "text-indigo-500", heading: "text-indigo-600 dark:text-indigo-400" },
+  "Demandbase Opportunity": { icon: "text-primary", heading: "text-primary" },
 };
 
 function AnalysisSection({
@@ -208,7 +208,7 @@ function AnalysisSection({
   badge?: { label: string; className?: string };
 }) {
   const [open, setOpen] = useState(defaultOpen);
-  const colors = SECTION_COLORS[title] || { icon: "text-muted-foreground", heading: "text-indigo-600 dark:text-indigo-400" };
+  const colors = SECTION_COLORS[title] || { icon: "text-muted-foreground", heading: "text-primary" };
 
   return (
     <div className="border rounded-lg overflow-hidden">
@@ -267,8 +267,8 @@ function AnalysisQA({ analysisId }: { analysisId: number }) {
 
   return (
     <div className="border rounded-lg overflow-hidden" data-testid={`qa-section-${analysisId}`}>
-      <div className="flex items-center gap-2 p-3 bg-indigo-50/50 dark:bg-indigo-950/20 border-b">
-        <MessageCircleQuestion className="h-4 w-4 text-indigo-500" />
+      <div className="flex items-center gap-2 p-3 bg-primary/5 border-b">
+        <MessageCircleQuestion className="h-4 w-4 text-primary" />
         <span className="font-medium text-sm">Ask About This Analysis</span>
         <span className="text-[10px] text-muted-foreground ml-auto">Answers grounded in analysis data only</span>
       </div>
@@ -278,13 +278,13 @@ function AnalysisQA({ analysisId }: { analysisId: number }) {
           {history.map((entry, i) => (
             <div key={i} className="space-y-1.5">
               <div className="flex gap-2">
-                <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5">Q:</span>
+                <span className="text-xs font-semibold text-primary shrink-0 mt-0.5">Q:</span>
                 <p className="text-sm font-medium text-foreground" data-testid={`text-qa-question-${analysisId}-${i}`}>{entry.question}</p>
               </div>
               <div className="flex gap-2">
                 <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5">A:</span>
                 <div className="text-sm text-foreground/80 prose prose-sm dark:prose-invert max-w-none" data-testid={`text-qa-answer-${analysisId}-${i}`}>
-                  <MarkdownRenderer content={entry.answer} sectionColor="text-indigo-600 dark:text-indigo-400" />
+                  <MarkdownRenderer content={entry.answer} sectionColor="text-primary" />
                 </div>
               </div>
               {i < history.length - 1 && <div className="border-b border-dashed" />}
@@ -339,7 +339,7 @@ function AnalysisCard({ analysis, onDelete }: { analysis: CompanyAnalysis; onDel
             data-testid={`button-toggle-analysis-${analysis.id}`}
           >
             {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-            <Building2 className="h-5 w-5 text-indigo-500" />
+            <Building2 className="h-5 w-5 text-primary" />
             <div>
               <CardTitle className="text-lg">{analysis.companyName}</CardTitle>
               <div className="flex items-center gap-2 mt-1">
@@ -352,7 +352,7 @@ function AnalysisCard({ analysis, onDelete }: { analysis: CompanyAnalysis; onDel
                     href={`https://finance.yahoo.com/quote/${analysis.ticker}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
+                    className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
                     onClick={(e) => e.stopPropagation()}
                     data-testid={`link-ticker-${analysis.id}`}
                   >
@@ -424,9 +424,9 @@ function AnalysisCard({ analysis, onDelete }: { analysis: CompanyAnalysis; onDel
                   const url = hasUrl ? s.slice(pipeIndex + 3) : null;
                   return (
                     <div key={i} className="flex items-start gap-2 text-xs text-muted-foreground" data-testid={`source-item-${i + 1}`}>
-                      <sup className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5">[{i + 1}]</sup>
+                      <sup className="text-[10px] font-bold text-primary shrink-0 mt-0.5">[{i + 1}]</sup>
                       {url ? (
-                        <a href={url} target="_blank" rel="noopener noreferrer" className="text-indigo-600 dark:text-indigo-400 hover:underline" data-testid={`source-link-${i + 1}`}>{label}</a>
+                        <a href={url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline" data-testid={`source-link-${i + 1}`}>{label}</a>
                       ) : (
                         <span>{label}</span>
                       )}
@@ -547,7 +547,7 @@ export default function CompanyAnalysisPage() {
       <div className="max-w-4xl mx-auto p-6 space-y-6">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2" data-testid="text-page-title">
-            <Building2 className="h-6 w-6 text-indigo-500" />
+            <Building2 className="h-6 w-6 text-primary" />
             Public Company Analysis
           </h1>
           <p className="text-muted-foreground mt-1">
@@ -595,7 +595,7 @@ export default function CompanyAnalysisPage() {
             </div>
             {analyzeMutation.isPending && progressMessage && (
               <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
-                <Sparkles className="h-4 w-4 animate-pulse text-indigo-500" />
+                <Sparkles className="h-4 w-4 animate-pulse text-primary" />
                 {progressMessage}
               </div>
             )}

@@ -62,8 +62,8 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarHeader className="p-4 pb-2">
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 shadow-md shadow-blue-500/20">
-            <TrendingUp className="h-[18px] w-[18px] text-white" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sidebar-primary">
+            <TrendingUp className="h-[18px] w-[18px] text-sidebar-primary-foreground" />
           </div>
           <div>
             <h2 className="text-sm font-bold tracking-tight" data-testid="text-app-title">B2B MarTech Intel</h2>

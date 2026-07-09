@@ -189,7 +189,7 @@ function LinkedInPostModal({ posts, onClose, onRefine, isRefining }: {
                 }
               }}
               disabled={!refineFeedback.trim() || isRefining}
-              className="h-8 bg-blue-600 hover:bg-blue-700 text-white"
+              className="h-8"
               data-testid="button-confirm-refine"
             >
               {isRefining ? (
@@ -270,7 +270,7 @@ function PresentationContentView({ preview }: { preview: PreviewData }) {
       </div>
 
       {activeSection === "headline" && (
-        <div className="p-5 bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/20 rounded-lg">
+        <div className="p-5 bg-primary/5 border border-primary/20 rounded-lg">
           <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-3 font-semibold">The Hook</p>
           <p className="text-lg font-bold text-foreground leading-snug">
             {preview.headline || "No headline generated"}
@@ -359,9 +359,9 @@ function ContentPreviewModal({
   const [activeTab, setActiveTab] = useState<"abstract" | "content">("abstract");
 
   const colorMap = {
-    blog: { border: "border-violet-200 dark:border-violet-800", bg: "bg-violet-50/50 dark:bg-violet-950/20", text: "text-violet-700 dark:text-violet-400", btn: "bg-violet-600 hover:bg-violet-700" },
-    webinar: { border: "border-teal-200 dark:border-teal-800", bg: "bg-teal-50/50 dark:bg-teal-950/20", text: "text-teal-700 dark:text-teal-400", btn: "bg-teal-600 hover:bg-teal-700" },
-    presentation: { border: "border-orange-200 dark:border-orange-800", bg: "bg-orange-50/50 dark:bg-orange-950/20", text: "text-orange-700 dark:text-orange-400", btn: "bg-orange-600 hover:bg-orange-700" },
+    blog: { border: "border-violet-200 dark:border-violet-800", bg: "bg-violet-50/50 dark:bg-violet-950/20", text: "text-violet-700 dark:text-violet-400" },
+    webinar: { border: "border-teal-200 dark:border-teal-800", bg: "bg-teal-50/50 dark:bg-teal-950/20", text: "text-teal-700 dark:text-teal-400" },
+    presentation: { border: "border-orange-200 dark:border-orange-800", bg: "bg-orange-50/50 dark:bg-orange-950/20", text: "text-orange-700 dark:text-orange-400" },
   };
   const colors = colorMap[preview.type];
   const typeLabel = preview.type === "blog" ? "Blog Post" : preview.type === "webinar" ? "Webinar" : "Presentation";
@@ -380,7 +380,7 @@ function ContentPreviewModal({
             size="sm"
             onClick={onSave}
             disabled={isSaving || isRefining}
-            className={`h-7 text-xs text-white ${colors.btn}`}
+            className="h-7 text-xs"
             data-testid="button-save-to-drive"
           >
             {isSaving ? (
@@ -495,7 +495,7 @@ function ContentPreviewModal({
                   }
                 }}
                 disabled={!refineFeedback.trim() || isRefining}
-                className={`h-8 text-white ${colors.btn}`}
+                className="h-8"
                 data-testid="button-confirm-preview-refine"
               >
                 {isRefining ? (
@@ -1009,11 +1009,7 @@ function OpportunityCard({ opp, index, model }: { opp: ThoughtLeadershipOpportun
                         size="sm"
                         onClick={() => contentFollowUpMutation.mutate()}
                         disabled={contentAnsweredCount === 0 || contentFollowUpMutation.isPending}
-                        className={`h-7 text-xs text-white ${
-                          creationMode === "blog" ? "bg-violet-600 hover:bg-violet-700" :
-                          creationMode === "webinar" ? "bg-teal-600 hover:bg-teal-700" :
-                          "bg-orange-600 hover:bg-orange-700"
-                        }`}
+                        className="h-7 text-xs"
                         data-testid="button-proceed-to-generate"
                       >
                         {contentFollowUpMutation.isPending ? (
@@ -1102,11 +1098,7 @@ function OpportunityCard({ opp, index, model }: { opp: ThoughtLeadershipOpportun
                         !documentName.trim() ||
                         (creationMode === "presentation" && !presentationAudience.trim())
                       }
-                      className={`h-8 text-white ${
-                        creationMode === "blog" ? "bg-violet-600 hover:bg-violet-700" :
-                        creationMode === "webinar" ? "bg-teal-600 hover:bg-teal-700" :
-                        "bg-orange-600 hover:bg-orange-700"
-                      }`}
+                      className="h-8"
                       data-testid="button-confirm-creation"
                     >
                       <Eye className="h-3.5 w-3.5 mr-1.5" />
@@ -1141,7 +1133,7 @@ function OpportunityCard({ opp, index, model }: { opp: ThoughtLeadershipOpportun
                     e.stopPropagation();
                     linkedInMutation.mutate({ postCount: parseInt(linkedInPostCount) });
                   }}
-                  className="h-8 bg-blue-600 hover:bg-blue-700 text-white"
+                  className="h-8"
                   data-testid="button-confirm-linkedin"
                 >
                   Generate
@@ -1256,7 +1248,7 @@ function AnalysisCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
             {isLatest && (
-              <Badge className="text-[10px] px-1.5 py-0 bg-amber-500 text-white">Latest</Badge>
+              <Badge className="text-[10px] px-1.5 py-0 bg-sunset text-sunset-foreground">Latest</Badge>
             )}
             <span className="text-xs text-muted-foreground flex items-center gap-1">
               <Clock className="h-3 w-3" />

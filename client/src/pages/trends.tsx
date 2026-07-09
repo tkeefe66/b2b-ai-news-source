@@ -125,7 +125,7 @@ function TrendPresentationView({ preview }: { preview: ContentPreview }) {
       </div>
 
       {activeSection === "headline" && (
-        <div className="p-5 bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/20 rounded-lg">
+        <div className="p-5 bg-primary/5 border border-primary/20 rounded-lg">
           <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-3 font-semibold">The Hook</p>
           <p className="text-lg font-bold text-foreground leading-snug">{preview.headline || "No headline generated"}</p>
         </div>
@@ -241,7 +241,7 @@ function TrendLinkedInModal({ posts, onClose, onRefine, isRefining }: {
           </div>
           <div className="flex gap-2 justify-end">
             <Button variant="ghost" size="sm" onClick={() => { setShowRefineInput(false); setRefineFeedback(""); }} disabled={isRefining} className="h-8" data-testid="button-cancel-trend-li-refine">Cancel</Button>
-            <Button size="sm" onClick={() => { if (refineFeedback.trim()) { onRefine(refineFeedback.trim()); setRefineFeedback(""); setShowRefineInput(false); } }} disabled={!refineFeedback.trim() || isRefining} className="h-8 bg-blue-600 hover:bg-blue-700 text-white" data-testid="button-submit-trend-li-refine">
+            <Button size="sm" onClick={() => { if (refineFeedback.trim()) { onRefine(refineFeedback.trim()); setRefineFeedback(""); setShowRefineInput(false); } }} disabled={!refineFeedback.trim() || isRefining} className="h-8" data-testid="button-submit-trend-li-refine">
               {isRefining ? <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />Refining...</> : <><RefreshCw className="h-3.5 w-3.5 mr-1.5" />Refine</>}
             </Button>
           </div>
@@ -265,9 +265,9 @@ function TrendContentPreviewModal({ preview, onClose, onRefine, onSave, isRefini
   const [activeTab, setActiveTab] = useState<"abstract" | "content">("abstract");
 
   const colorMap = {
-    blog: { border: "border-violet-200 dark:border-violet-800", bg: "bg-violet-50/50 dark:bg-violet-950/20", text: "text-violet-700 dark:text-violet-400", btn: "bg-violet-600 hover:bg-violet-700" },
-    webinar: { border: "border-teal-200 dark:border-teal-800", bg: "bg-teal-50/50 dark:bg-teal-950/20", text: "text-teal-700 dark:text-teal-400", btn: "bg-teal-600 hover:bg-teal-700" },
-    presentation: { border: "border-orange-200 dark:border-orange-800", bg: "bg-orange-50/50 dark:bg-orange-950/20", text: "text-orange-700 dark:text-orange-400", btn: "bg-orange-600 hover:bg-orange-700" },
+    blog: { border: "border-violet-200 dark:border-violet-800", bg: "bg-violet-50/50 dark:bg-violet-950/20", text: "text-violet-700 dark:text-violet-400" },
+    webinar: { border: "border-teal-200 dark:border-teal-800", bg: "bg-teal-50/50 dark:bg-teal-950/20", text: "text-teal-700 dark:text-teal-400" },
+    presentation: { border: "border-orange-200 dark:border-orange-800", bg: "bg-orange-50/50 dark:bg-orange-950/20", text: "text-orange-700 dark:text-orange-400" },
   };
   const colors = colorMap[preview.type];
   const typeLabel = preview.type === "blog" ? "Blog Post" : preview.type === "webinar" ? "Webinar" : "Presentation";
@@ -280,7 +280,7 @@ function TrendContentPreviewModal({ preview, onClose, onRefine, onSave, isRefini
           <span className={`text-xs font-semibold uppercase tracking-wider ${colors.text}`}>{typeLabel} Preview</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <Button size="sm" onClick={onSave} disabled={isSaving || isRefining} className={`h-7 text-xs text-white ${colors.btn}`} data-testid="button-trend-save-drive">
+          <Button size="sm" onClick={onSave} disabled={isSaving || isRefining} className="h-7 text-xs" data-testid="button-trend-save-drive">
             {isSaving ? <><Loader2 className="h-3 w-3 mr-1 animate-spin" />Saving...</> : <><Save className="h-3 w-3 mr-1" />Save to Google Drive</>}
           </Button>
           <Button variant="ghost" size="sm" onClick={onClose} className="h-7 w-7 p-0" data-testid="button-close-trend-preview"><X className="h-3.5 w-3.5" /></Button>
@@ -330,7 +330,7 @@ function TrendContentPreviewModal({ preview, onClose, onRefine, onSave, isRefini
             </div>
             <div className="flex gap-2 justify-end">
               <Button variant="ghost" size="sm" onClick={() => { setShowRefineInput(false); setRefineFeedback(""); }} className="h-8" data-testid="button-cancel-trend-preview-refine">Cancel</Button>
-              <Button size="sm" onClick={() => { if (refineFeedback.trim()) { onRefine(refineFeedback.trim()); setRefineFeedback(""); setShowRefineInput(false); } }} disabled={!refineFeedback.trim() || isRefining} className={`h-8 text-white ${colors.btn}`} data-testid="button-submit-trend-preview-refine">
+              <Button size="sm" onClick={() => { if (refineFeedback.trim()) { onRefine(refineFeedback.trim()); setRefineFeedback(""); setShowRefineInput(false); } }} disabled={!refineFeedback.trim() || isRefining} className="h-8" data-testid="button-submit-trend-preview-refine">
                 {isRefining ? <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />Refining...</> : <><RefreshCw className="h-3.5 w-3.5 mr-1.5" />Refine</>}
               </Button>
             </div>
@@ -554,7 +554,7 @@ function TrendContentGenerator({ name, description, category, model, idSuffix }:
                       <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground hover:text-foreground" onClick={() => { setAllContentQA(getCreatorAnswers()); setCreationPhase("ready"); }} disabled={contentFollowUpMutation.isPending} data-testid="button-trend-skip-questions">
                         <ArrowRight className="h-3 w-3 mr-1" />Skip
                       </Button>
-                      <Button size="sm" onClick={() => contentFollowUpMutation.mutate()} disabled={contentAnsweredCount === 0 || contentFollowUpMutation.isPending} className={`h-7 text-xs text-white ${creationMode === "blog" ? "bg-violet-600 hover:bg-violet-700" : creationMode === "webinar" ? "bg-teal-600 hover:bg-teal-700" : "bg-orange-600 hover:bg-orange-700"}`} data-testid="button-trend-proceed">
+                      <Button size="sm" onClick={() => contentFollowUpMutation.mutate()} disabled={contentAnsweredCount === 0 || contentFollowUpMutation.isPending} className="h-7 text-xs" data-testid="button-trend-proceed">
                         {contentFollowUpMutation.isPending ? <><Loader2 className="h-3 w-3 mr-1 animate-spin" />Reviewing...</> : <><ArrowRight className="h-3 w-3 mr-1" />Continue</>}
                       </Button>
                     </div>
@@ -590,7 +590,7 @@ function TrendContentGenerator({ name, description, category, model, idSuffix }:
                       if (creationMode === "blog") blogMutation.mutate({ name: n, creatorAnswers: answers });
                       else if (creationMode === "webinar") webinarMutation.mutate({ name: n, creatorAnswers: answers });
                       else if (presentationAudience.trim()) presentationMutation.mutate({ name: n, targetAudience: presentationAudience.trim(), creatorAnswers: answers });
-                    }} disabled={!documentName.trim() || (creationMode === "presentation" && !presentationAudience.trim())} className={`h-8 text-white ${creationMode === "blog" ? "bg-violet-600 hover:bg-violet-700" : creationMode === "webinar" ? "bg-teal-600 hover:bg-teal-700" : "bg-orange-600 hover:bg-orange-700"}`} data-testid="button-trend-generate-preview">
+                    }} disabled={!documentName.trim() || (creationMode === "presentation" && !presentationAudience.trim())} className="h-8" data-testid="button-trend-generate-preview">
                       <Eye className="h-3.5 w-3.5 mr-1.5" />Generate Preview
                     </Button>
                   </div>
@@ -609,7 +609,7 @@ function TrendContentGenerator({ name, description, category, model, idSuffix }:
                     {["1","2","3","4","5"].map(v => <SelectItem key={v} value={v}>{v} post{v !== "1" ? "s" : ""}</SelectItem>)}
                   </SelectContent>
                 </Select>
-                <Button size="sm" onClick={() => linkedInMutation.mutate({ postCount: parseInt(linkedInPostCount) })} className="h-8 bg-blue-600 hover:bg-blue-700 text-white" data-testid="button-trend-confirm-li">Generate</Button>
+                <Button size="sm" onClick={() => linkedInMutation.mutate({ postCount: parseInt(linkedInPostCount) })} className="h-8" data-testid="button-trend-confirm-li">Generate</Button>
                 <Button variant="ghost" size="sm" onClick={() => setShowLinkedInPrompt(false)} className="h-8" data-testid="button-trend-cancel-li">Cancel</Button>
               </div>
             </div>

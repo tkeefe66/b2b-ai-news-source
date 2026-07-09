@@ -78,11 +78,11 @@ function EnablementPreviewModal({
   const [showRefineInput, setShowRefineInput] = useState(false);
 
   return (
-    <div className="mt-3 border-orange-200 dark:border-orange-800 border rounded-lg overflow-hidden" data-testid="content-preview-modal">
-      <div className="flex items-center justify-between px-4 py-2.5 bg-orange-50/50 dark:bg-orange-950/20 border-b border-orange-200 dark:border-orange-800">
+    <div className="mt-3 border-primary/20 border rounded-lg overflow-hidden" data-testid="content-preview-modal">
+      <div className="flex items-center justify-between px-4 py-2.5 bg-primary/5 border-b border-primary/20">
         <div className="flex items-center gap-2">
-          <Eye className="h-4 w-4 text-orange-700 dark:text-orange-400" />
-          <span className="text-xs font-semibold uppercase tracking-wider text-orange-700 dark:text-orange-400">
+          <Eye className="h-4 w-4 text-primary" />
+          <span className="text-xs font-semibold uppercase tracking-wider text-primary">
             {preview.isDeck ? "Deck Preview" : "Content Preview"}
           </span>
         </div>
@@ -92,7 +92,7 @@ function EnablementPreviewModal({
               size="sm"
               onClick={() => onSave("slides")}
               disabled={isSaving || isRefining}
-              className="h-7 text-xs text-white bg-orange-600 hover:bg-orange-700"
+              className="h-7 text-xs"
               data-testid="button-save-to-drive"
             >
               {isSaving ? (
@@ -106,7 +106,7 @@ function EnablementPreviewModal({
               size="sm"
               onClick={() => onSave("document")}
               disabled={isSaving || isRefining}
-              className="h-7 text-xs text-white bg-orange-600 hover:bg-orange-700"
+              className="h-7 text-xs"
               data-testid="button-save-to-drive"
             >
               {isSaving ? (
@@ -122,7 +122,7 @@ function EnablementPreviewModal({
         </div>
       </div>
 
-      <div className="px-4 py-2 border-b border-orange-200 dark:border-orange-800 bg-orange-50/30 dark:bg-orange-950/10 flex items-center gap-2">
+      <div className="px-4 py-2 border-b border-primary/20 bg-primary/5 flex items-center gap-2">
         <span className="text-[10px] text-muted-foreground shrink-0 uppercase tracking-wide font-medium">Name:</span>
         <input
           type="text"
@@ -143,7 +143,7 @@ function EnablementPreviewModal({
       </div>
 
       {!preview.isDeck && (
-        <div className="px-4 py-2 border-t border-orange-200 dark:border-orange-800 bg-orange-50/30 dark:bg-orange-950/10 flex items-center gap-2">
+        <div className="px-4 py-2 border-t border-primary/20 bg-primary/5 flex items-center gap-2">
           <Button
             variant="outline"
             size="sm"
@@ -158,7 +158,7 @@ function EnablementPreviewModal({
         </div>
       )}
 
-      <div className="px-4 py-3 bg-orange-50/50 dark:bg-orange-950/20 border-t border-orange-200 dark:border-orange-800">
+      <div className="px-4 py-3 bg-primary/5 border-t border-primary/20">
         {!showRefineInput ? (
           <div className="space-y-2.5">
             <div className="flex items-center gap-2">
@@ -166,7 +166,7 @@ function EnablementPreviewModal({
                 size="sm"
                 onClick={onDone}
                 disabled={isRefining || isSaving}
-                className="h-8 text-xs text-white bg-orange-600 hover:bg-orange-700 flex-1"
+                className="h-8 text-xs flex-1"
                 data-testid="button-done-save"
               >
                 <Check className="h-3.5 w-3.5 mr-1.5" />
@@ -177,7 +177,7 @@ function EnablementPreviewModal({
                 size="sm"
                 onClick={() => setShowRefineInput(true)}
                 disabled={isRefining || isSaving}
-                className="h-8 text-xs border-orange-200 dark:border-orange-800 text-orange-700 dark:text-orange-400"
+                className="h-8 text-xs border-primary/20 text-primary"
                 data-testid="button-show-preview-refine"
               >
                 <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
@@ -190,7 +190,7 @@ function EnablementPreviewModal({
           </div>
         ) : (
           <div data-testid="preview-refine-panel">
-            <p className="text-xs font-medium text-orange-700 dark:text-orange-400 mb-2">
+            <p className="text-xs font-medium text-primary mb-2">
               What would you like to change?
             </p>
             <div className="relative">
@@ -229,7 +229,7 @@ function EnablementPreviewModal({
                   }
                 }}
                 disabled={!refineFeedback.trim() || isRefining}
-                className="h-8 text-white bg-orange-600 hover:bg-orange-700"
+                className="h-8"
                 data-testid="button-confirm-preview-refine"
               >
                 {isRefining ? (
@@ -278,7 +278,7 @@ function HistoryCard({
 
   return (
     <Card
-      className={`overflow-hidden ${isLatest ? "border-orange-300 dark:border-orange-700 shadow-sm" : "border-border"}`}
+      className={`overflow-hidden ${isLatest ? "border-primary/40 shadow-sm" : "border-border"}`}
       data-testid={`card-enablement-history-${item.id}`}
     >
       <div
@@ -289,10 +289,10 @@ function HistoryCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
             {isLatest && (
-              <Badge className="text-[10px] px-1.5 py-0 bg-orange-500 text-white">Latest</Badge>
+              <Badge className="text-[10px] px-1.5 py-0 bg-sunset text-sunset-foreground">Latest</Badge>
             )}
             {typeInfo && (
-              <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-orange-300 text-orange-700 dark:border-orange-700 dark:text-orange-400">
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-sunset/40 text-sunset">
                 {typeInfo.label}
               </Badge>
             )}
@@ -346,7 +346,7 @@ function HistoryCard({
           <div className="flex justify-end mt-3 pt-2 border-t border-border">
             <Button
               size="sm"
-              className="gap-1.5 bg-orange-600 hover:bg-orange-700 text-white"
+              className="gap-1.5"
               onClick={(e) => { e.stopPropagation(); onContinue(item); }}
               data-testid={`button-continue-history-${item.id}`}
             >
@@ -848,7 +848,7 @@ export default function Enablement() {
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <Target className="h-5 w-5 text-orange-500 shrink-0" />
+              <Target className="h-5 w-5 text-primary shrink-0" />
               <h1 className="text-base font-semibold leading-tight" data-testid="text-enablement-title">Field Enablement</h1>
             </div>
             {phase === "idle" ? (
@@ -948,8 +948,8 @@ export default function Enablement() {
           {showWelcome ? (
           <div className="max-w-3xl mx-auto">
             <div className="text-center mb-8 mt-4">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-orange-500/10 mx-auto mb-4">
-                <Target className="h-8 w-8 text-orange-500" />
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 mx-auto mb-4">
+                <Target className="h-8 w-8 text-primary" />
               </div>
               <h2 className="text-base font-semibold mb-1" data-testid="text-enablement-welcome">Demandbase Field Enablement Agent</h2>
               <p className="text-sm text-muted-foreground max-w-md mx-auto">
@@ -967,10 +967,10 @@ export default function Enablement() {
                       setSelectedType(type.id);
                       startProbing(type.defaultPrompt, type.id);
                     }}
-                    className="flex items-center gap-2 p-3 rounded-lg border text-left transition-colors border-border hover:border-orange-500 hover:bg-orange-500/5 group"
+                    className="flex items-center gap-2 p-3 rounded-lg border text-left transition-colors border-border hover:border-primary hover:bg-primary/5 group"
                     data-testid={`button-type-${type.id}`}
                   >
-                    <type.icon className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-orange-500 transition-colors" />
+                    <type.icon className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-primary transition-colors" />
                     <div>
                       <p className="text-sm font-medium">{type.label}</p>
                       <p className="text-xs text-muted-foreground">{type.description}</p>
@@ -1012,7 +1012,7 @@ export default function Enablement() {
               <Card className="p-5" data-testid="qa-questions-card">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-semibold flex items-center gap-2" data-testid="text-questions-heading">
-                    <Target className="h-4 w-4 text-orange-500" />
+                    <Target className="h-4 w-4 text-primary" />
                     {followUpRound === 1 ? `Shape your ${contentTypeLabel}` : `Follow-up Round ${followUpRound}`}
                   </h3>
                   <Button variant="ghost" size="sm" onClick={reset} data-testid="button-start-over">
@@ -1021,9 +1021,9 @@ export default function Enablement() {
                   </Button>
                 </div>
 
-                <div className="rounded-lg bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800 p-3 mb-4" data-testid="msg-user-request">
-                  <p className="text-xs font-medium text-orange-800 dark:text-orange-300 mb-1">Your request:</p>
-                  <p className="text-sm text-orange-900 dark:text-orange-200 italic">{lastPrompt}</p>
+                <div className="rounded-lg bg-primary/5 border border-primary/20 p-3 mb-4" data-testid="msg-user-request">
+                  <p className="text-xs font-medium text-primary mb-1">Your request:</p>
+                  <p className="text-sm text-foreground italic">{lastPrompt}</p>
                   {selectedType && (
                     <Badge variant="secondary" className="text-[10px] mt-2">
                       {contentTypeLabel}
@@ -1060,7 +1060,7 @@ export default function Enablement() {
                   {questions.map((q, i) => (
                     <div key={q.id} className="rounded-md border border-border bg-background p-2.5" data-testid={`qa-item-${i}`}>
                       <div className="flex items-start gap-1.5 mb-1.5">
-                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-orange-100 dark:bg-orange-900/40 text-[10px] font-bold text-orange-700 dark:text-orange-400 mt-0.5">
+                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary mt-0.5">
                           {i + 1}
                         </span>
                         <div className="flex-1 min-w-0">
@@ -1107,7 +1107,7 @@ export default function Enablement() {
                       size="sm"
                       onClick={submitAnswersAndProbe}
                       disabled={answeredCount === 0}
-                      className="h-7 text-xs bg-orange-600 hover:bg-orange-700 text-white"
+                      className="h-7 text-xs"
                       data-testid="button-submit-answers"
                     >
                       <ArrowRight className="h-3 w-3 mr-1" />
@@ -1120,9 +1120,9 @@ export default function Enablement() {
           </div>
         ) : (
           <div className="max-w-3xl mx-auto space-y-4">
-            <div className="rounded-lg bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800 p-3" data-testid="msg-user-request-gen">
-              <p className="text-xs font-medium text-orange-800 dark:text-orange-300 mb-1">Your request:</p>
-              <p className="text-sm text-orange-900 dark:text-orange-200 italic">{lastPrompt}</p>
+            <div className="rounded-lg bg-primary/5 border border-primary/20 p-3" data-testid="msg-user-request-gen">
+              <p className="text-xs font-medium text-primary mb-1">Your request:</p>
+              <p className="text-sm text-foreground italic">{lastPrompt}</p>
               {selectedType && (
                 <Badge variant="secondary" className="text-[10px] mt-2">
                   {contentTypeLabel}
@@ -1149,7 +1149,7 @@ export default function Enablement() {
 
             {phase === "generating" && (
               <div className="flex flex-col items-center gap-3 py-12" data-testid="generating-spinner">
-                <Loader2 className="h-6 w-6 animate-spin text-orange-500" />
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
                 <span className="text-sm text-muted-foreground">
                   {isRefining ? "Refining your content..." : "Creating your content..."}
                 </span>

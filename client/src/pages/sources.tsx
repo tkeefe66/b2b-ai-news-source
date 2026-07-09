@@ -1582,7 +1582,6 @@ function KnowledgeReviewDialog({ entries: initialEntries, batchId, filename, ope
                   size="sm"
                   onClick={handleApproveAll}
                   disabled={isApprovingAll}
-                  className="bg-green-600 hover:bg-green-700 text-white"
                   data-testid="button-approve-all"
                 >
                   {isApprovingAll ? (
@@ -3215,7 +3214,6 @@ function KnowledgeReviewInline({ entries: initialEntries, batchId, onDone }: {
             size="sm"
             onClick={handleApproveAll}
             disabled={isApprovingAll}
-            className="bg-green-600 hover:bg-green-700 text-white"
             data-testid="button-approve-all-inline"
           >
             {isApprovingAll ? (

@@ -25,7 +25,7 @@ export function renderInline(text: string): React.ReactNode {
     } else if (match[5] && match[6]) {
       tokens.push(
         <a key={key} href={match[6]} target="_blank" rel="noopener noreferrer"
-          className="text-blue-600 dark:text-blue-400 underline underline-offset-2 hover:opacity-80"
+          className="text-primary underline underline-offset-2 hover:opacity-80"
           data-testid={`link-inline-${key}`}>{match[5]}</a>
       );
     }
