@@ -189,7 +189,7 @@ const activeChunkedUploads = new Map<string, { totalChunks: number; receivedChun
 
 setInterval(() => {
   const now = Date.now();
-  for (const [uploadId, info] of activeChunkedUploads.entries()) {
+  for (const [uploadId, info] of Array.from(activeChunkedUploads.entries())) {
     if (now - info.createdAt > 30 * 60 * 1000) {
       activeChunkedUploads.delete(uploadId);
       for (let i = 0; i < info.totalChunks; i++) {
@@ -483,7 +483,7 @@ export async function processUrlToKnowledge(
   text: string,
   url: string,
   userCategory?: string
-): Promise<{ entries: Array<{ category: string; title: string; content: string; sourceUrl: string | null }> }> {
+): Promise<{ entries: Array<{ category: string; title: string; content: string; sourceUrl: string | null; confidence?: number }> }> {
   const truncatedText = text.substring(0, 40000);
 
   const categoryList = VALID_CATEGORIES.map(c => `- ${c}`).join("\n");
@@ -521,7 +521,7 @@ Rules:
     maxTokens: 4000,
   });
 
-  let entries: Array<{ category: string; title: string; content: string; sourceUrl: string | null }> = [];
+  let entries: Array<{ category: string; title: string; content: string; sourceUrl: string | null; confidence?: number }> = [];
   try {
     const jsonMatch = response.match(/\[[\s\S]*\]/);
     if (jsonMatch) {

@@ -513,7 +513,6 @@ export const crawlPages = pgTable("crawl_pages", {
 export const insertCrawlPageSchema = createInsertSchema(crawlPages).omit({
   id: true,
   crawledAt: true,
-  errorMessage: true,
 });
 
 export type CrawlPage = typeof crawlPages.$inferSelect;

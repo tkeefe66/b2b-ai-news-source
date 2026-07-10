@@ -41,7 +41,11 @@ const buttonVariants = cva(
 
 export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof buttonVariants> {
+    Omit<VariantProps<typeof buttonVariants>, "variant"> {
+  // "link" is accepted by call sites but has no dedicated cva styling (falls
+  // back to base classes only); widened here to match existing usage without
+  // changing buttonVariants' runtime behavior.
+  variant?: VariantProps<typeof buttonVariants>["variant"] | "link"
   asChild?: boolean
 }
 
@@ -50,7 +54,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     const Comp = asChild ? Slot : "button"
     return (
       <Comp
-        className={cn(buttonVariants({ variant, size, className }))}
+        className={cn(buttonVariants({ variant: variant as VariantProps<typeof buttonVariants>["variant"], size, className }))}
         ref={ref}
         {...props}
       />

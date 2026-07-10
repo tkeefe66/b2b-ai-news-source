@@ -796,7 +796,7 @@ function KnowledgeBaseTab() {
 
   const expandAll = () => setExpandedCategories(new Set(Object.keys(grouped)));
   const collapseAll = () => setExpandedCategories(new Set());
-  const usedCategories = [...new Set(entries.map((e) => e.category))];
+  const usedCategories = Array.from(new Set(entries.map((e) => e.category)));
 
   return (
     <div className="space-y-4">

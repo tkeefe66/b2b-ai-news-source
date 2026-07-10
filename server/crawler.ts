@@ -50,7 +50,7 @@ function extractLinks(html: string, baseUrl: string): string[] {
     } catch {
     }
   }
-  return [...new Set(links)];
+  return Array.from(new Set(links));
 }
 
 function extractTitle(html: string): string {
@@ -133,7 +133,7 @@ const SKIP_PATTERNS = [
 
 function shouldSkipUrl(url: string): boolean {
   const lower = url.toLowerCase();
-  for (const ext of SKIP_EXTENSIONS) {
+  for (const ext of Array.from(SKIP_EXTENSIONS)) {
     if (lower.endsWith(ext)) return true;
   }
   for (const pattern of SKIP_PATTERNS) {

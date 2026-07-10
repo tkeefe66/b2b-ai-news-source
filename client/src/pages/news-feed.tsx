@@ -532,9 +532,9 @@ export default function NewsFeed() {
                     size="sm"
                     className="text-xs"
                     onClick={() => {
-                      const newSet = new Set([...dismissedIds, rec.sourceId!]);
+                      const newSet = new Set([...Array.from(dismissedIds), rec.sourceId!]);
                       setDismissedIds(newSet);
-                      try { sessionStorage.setItem("ignored-recommendations", JSON.stringify([...newSet])); } catch {}
+                      try { sessionStorage.setItem("ignored-recommendations", JSON.stringify(Array.from(newSet))); } catch {}
                     }}
                     data-testid={`button-ignore-rec-${rec.sourceId}`}
                   >

@@ -6674,7 +6674,7 @@ Analyze this single slide screenshot. Identify its visual design pattern and pro
           }
         }
 
-        const allTerms = [...new Set([...words, ...bigrams])];
+        const allTerms = Array.from(new Set([...words, ...bigrams]));
         for (const term of allTerms) {
           if (!topicCounts[term]) topicCounts[term] = { total: 0, byDate: {} };
           topicCounts[term].total++;
@@ -6745,7 +6745,7 @@ Analyze this single slide screenshot. Identify its visual design pattern and pro
         for (const a of arts) {
           const text = `${a.title || ""} ${a.description || ""}`.toLowerCase();
           const words = text.replace(/[^a-z0-9\s-]/g, "").split(/\s+/).filter(w => w.length > 4);
-          for (const w of new Set(words)) {
+          for (const w of Array.from(new Set(words))) {
             counts[w] = (counts[w] || 0) + 1;
           }
         }

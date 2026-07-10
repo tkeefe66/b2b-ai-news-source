@@ -8,6 +8,12 @@ import { ExternalLink, Globe, Clock, Rss, BookOpen, Plus, Newspaper, CheckCircle
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Source, PendingKnowledge, KnowledgeEntry } from "@shared/schema";
+
+// KnowledgeEntry rows never carry `sourceFilename` (that field lives only on
+// PendingKnowledge in shared/schema.ts). Some call sites optionally read it
+// off entries anyway; this type reflects that optional/absent shape without
+// widening KnowledgeEntry itself.
+type KnowledgeEntryWithFilename = KnowledgeEntry & { sourceFilename?: string };
 import {
   Dialog,
   DialogContent,
@@ -2235,7 +2241,7 @@ function KnowledgeBaseSection() {
                     {conflicts.map((conflict, idx) => {
                       const involvedEntries = conflict.entryIds
                         ?.map(id => entries.find(e => e.id === id))
-                        .filter(Boolean) as KnowledgeEntry[] || [];
+                        .filter(Boolean) as KnowledgeEntryWithFilename[] || [];
                       const suggestion = getSuggestionForConflict(idx);
                       const isResolved = resolvedConflicts.has(idx);
                       const isTeaching = teachingIdx === idx;
@@ -2724,7 +2730,7 @@ function KnowledgeBaseSection() {
             <DialogTitle>Delete Knowledge Entry</DialogTitle>
           </DialogHeader>
           {(() => {
-            const entryToDelete = deleteId ? entries.find(e => e.id === deleteId) : null;
+            const entryToDelete = deleteId ? (entries.find(e => e.id === deleteId) as KnowledgeEntryWithFilename | undefined) : null;
             return (
               <div className="space-y-3">
                 <p className="text-sm text-muted-foreground">

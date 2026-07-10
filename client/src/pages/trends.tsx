@@ -37,6 +37,7 @@ import { useToast } from "@/hooks/use-toast";
 import { getTimeAgo } from "@/lib/time";
 import { ModelSelector, useSelectedModel, MODEL_DISPLAY } from "@/components/ModelSelector";
 import { DateRangePicker } from "@/components/date-range-picker";
+import type { DateRange } from "react-day-picker";
 import { HowTrendsWorks } from "@/components/how-trends-works";
 import type { TrendAnalysis, DashboardView, Article, TrendSnapshot, TrendWatchlistItem } from "@shared/schema";
 
@@ -1699,7 +1700,7 @@ export default function Trends() {
   const [selectedModel, setSelectedModel] = useSelectedModel("selectedModel-trends");
   const [activeTab, setActiveTab] = useState<"dashboard" | "briefs" | "watchlist">("dashboard");
   const [dateRange, setDateRange] = useState("30");
-  const [customDateRange, setCustomDateRange] = useState<{ from?: Date; to?: Date } | undefined>();
+  const [customDateRange, setCustomDateRange] = useState<DateRange | undefined>();
   const [category, setCategory] = useState("all");
   const [selectedCompetitors, setSelectedCompetitors] = useState<string[]>([]);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);

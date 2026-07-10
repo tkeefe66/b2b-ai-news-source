@@ -582,7 +582,7 @@ function CrawlJobDetail({ jobId, jobStatus }: { jobId: number; jobStatus: string
                   size="sm"
                   variant="outline"
                   className="h-7 text-xs"
-                  onClick={() => batchStatusMutation.mutate({ ids: [...selectedEntries], status: "approved" })}
+                  onClick={() => batchStatusMutation.mutate({ ids: Array.from(selectedEntries), status: "approved" })}
                   data-testid="button-batch-approve"
                 >
                   <Check className="h-3 w-3 mr-1" />
@@ -592,7 +592,7 @@ function CrawlJobDetail({ jobId, jobStatus }: { jobId: number; jobStatus: string
                   title={`Reject ${selectedEntries.size} ${selectedEntries.size === 1 ? "entry" : "entries"}?`}
                   description="Rejected entries are excluded from the Knowledge Base push. There is no bulk un-reject."
                   confirmLabel="Reject"
-                  onConfirm={() => batchStatusMutation.mutate({ ids: [...selectedEntries], status: "rejected" })}
+                  onConfirm={() => batchStatusMutation.mutate({ ids: Array.from(selectedEntries), status: "rejected" })}
                 >
                   <Button
                     size="sm"
