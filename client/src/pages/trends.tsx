@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { getTimeAgo } from "@/lib/time";
 import { ModelSelector, useSelectedModel, MODEL_DISPLAY } from "@/components/ModelSelector";
 import { DateRangePicker } from "@/components/date-range-picker";
 import type { TrendAnalysis, DashboardView, Article, TrendSnapshot, TrendWatchlistItem } from "@shared/schema";
@@ -536,7 +537,7 @@ function TrendContentGenerator({ name, description, category, model, idSuffix }:
                     {contentQuestions.map((q, qi) => (
                       <div key={q.id} className="rounded-md border border-border bg-background p-2.5" data-testid={`trend-question-${qi}`}>
                         <div className="flex items-start gap-1.5 mb-1.5">
-                          <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[9px] font-bold mt-0.5 ${creationMode === "blog" ? "bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-400" : creationMode === "webinar" ? "bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-400" : "bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-400"}`}>{qi + 1}</span>
+                          <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold mt-0.5 ${creationMode === "blog" ? "bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-400" : creationMode === "webinar" ? "bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-400" : "bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-400"}`}>{qi + 1}</span>
                           <div className="flex-1 min-w-0">
                             <p className="text-xs font-medium text-foreground leading-snug">{q.question}</p>
                             <p className="text-[10px] text-muted-foreground mt-0.5 italic">{q.why}</p>
@@ -1439,19 +1440,6 @@ function OldTrendsSection({
   );
 }
 
-function getTimeAgo(date: Date): string {
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  if (diffMins < 1) return "just now";
-  if (diffMins < 60) return `${diffMins}m ago`;
-  const diffHours = Math.floor(diffMins / 60);
-  if (diffHours < 24) return `${diffHours}h ago`;
-  const diffDays = Math.floor(diffHours / 24);
-  if (diffDays === 1) return "yesterday";
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString();
-}
 
 interface WatchlistHistoryEntry {
   snapshotId: number;
@@ -1603,21 +1591,21 @@ function WatchlistItemCard({ item, onRemove, onUpdate }: {
             ) : (
               <div className="space-y-2">
                 {history.map((entry, i) => (
-                  <div key={entry.snapshotId} className="flex items-center gap-3 text-xs py-1.5 px-2 rounded bg-muted/50">
+                  <div key={entry.snapshotId} className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs py-1.5 px-2 rounded bg-muted/50">
                     <span className="text-muted-foreground w-20 flex-shrink-0">
                       {new Date(entry.date).toLocaleDateString()}
                     </span>
                     <div className="flex items-center gap-1.5">
                       <MomentumIcon momentum={entry.momentum as any} />
-                      <span className="capitalize w-16">{entry.momentum}</span>
+                      <span className="capitalize">{entry.momentum}</span>
                     </div>
                     <div className="flex items-center gap-1">
                       <div className="h-1.5 w-10 bg-muted rounded-full overflow-hidden">
                         <div className="h-full bg-primary rounded-full" style={{ width: `${Math.round(entry.confidence * 100)}%` }} />
                       </div>
-                      <span className="text-muted-foreground w-8">{Math.round(entry.confidence * 100)}%</span>
+                      <span className="text-muted-foreground">{Math.round(entry.confidence * 100)}%</span>
                     </div>
-                    <span className="text-muted-foreground">{entry.articleCount} articles</span>
+                    <span className="text-muted-foreground whitespace-nowrap">{entry.articleCount} articles</span>
                     <Badge variant="outline" className="text-[10px] ml-auto">{entry.days}d</Badge>
                   </div>
                 ))}
@@ -2198,7 +2186,7 @@ export default function Trends() {
                                     {signal.description}
                                   </p>
                                   <div className="flex items-center justify-between gap-2 mt-1.5">
-                                    <Badge className={`text-[9px] px-1 py-0 ${catColor}`}>
+                                    <Badge className={`text-[10px] px-1 py-0 ${catColor}`}>
                                       {signal.category}
                                     </Badge>
                                     <TrendContentGenerator name={signal.name} description={signal.description} category={signal.category} model={selectedModel} idSuffix={`signal-${i}`} />

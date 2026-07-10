@@ -2090,7 +2090,7 @@ export default function DbPov() {
     <div className="h-full overflow-y-auto">
       <div className="max-w-5xl mx-auto p-6 space-y-6">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2" data-testid="text-dbpov-title">
+          <h1 className="text-lg font-semibold flex items-center gap-2" data-testid="text-dbpov-title">
             <Database className="h-6 w-6 text-primary" />
             DB Point of View
           </h1>

@@ -145,7 +145,7 @@ export default function MorningBrief() {
       <div className="max-w-5xl mx-auto p-4 md:p-6 space-y-4">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
+            <h1 className="text-lg font-semibold flex items-center gap-2">
               <Mail className="h-6 w-6" /> Morning Brief
             </h1>
             <p className="text-sm text-muted-foreground">

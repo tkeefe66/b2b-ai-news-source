@@ -62,7 +62,8 @@ function BriefingRenderer({ content }: { content: string }) {
     <div className="prose prose-sm dark:prose-invert max-w-none">
       {lines.map((line, i) => {
         if (line.startsWith("# ")) {
-          return <h1 key={i} className="text-xl font-bold mt-6 mb-3 text-primary">{line.slice(2)}</h1>;
+          // h2, not h1: the page already has its own h1 and this is rendered content.
+          return <h2 key={i} className="text-xl font-bold mt-6 mb-3 text-primary">{line.slice(2)}</h2>;
         }
         if (line.startsWith("## ")) {
           return <h2 key={i} className="text-lg font-semibold mt-5 mb-2 border-b pb-1 border-border">{line.slice(3)}</h2>;

@@ -558,7 +558,7 @@ export default function CompanyAnalysisPage() {
     <div className="h-full overflow-y-auto">
       <div className="max-w-4xl mx-auto p-6 space-y-6">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2" data-testid="text-page-title">
+          <h1 className="text-lg font-semibold flex items-center gap-2" data-testid="text-page-title">
             <Building2 className="h-6 w-6 text-primary" />
             Public Company Analysis
           </h1>

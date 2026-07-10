@@ -9,6 +9,7 @@ import { ModelSelector, useSelectedModel, MODEL_DISPLAY } from "@/components/Mod
 import MarkdownRenderer from "@/components/MarkdownRenderer";
 import { SiGoogleslides } from "react-icons/si";
 import { useToast } from "@/hooks/use-toast";
+import { getTimeAgo } from "@/lib/time";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { ConfirmDestructive } from "@/components/confirm-destructive";
@@ -249,19 +250,6 @@ function EnablementPreviewModal({
   );
 }
 
-function getTimeAgo(date: Date): string {
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  if (diffMins < 1) return "just now";
-  if (diffMins < 60) return `${diffMins}m ago`;
-  const diffHours = Math.floor(diffMins / 60);
-  if (diffHours < 24) return `${diffHours}h ago`;
-  const diffDays = Math.floor(diffHours / 24);
-  if (diffDays === 1) return "yesterday";
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString();
-}
 
 function HistoryCard({
   item,
@@ -875,7 +863,7 @@ export default function Enablement() {
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <Target className="h-5 w-5 text-primary shrink-0" />
-              <h1 className="text-base font-semibold leading-tight" data-testid="text-enablement-title">Field Enablement</h1>
+              <h1 className="text-lg font-semibold leading-tight" data-testid="text-enablement-title">Field Enablement</h1>
             </div>
             {phase === "idle" ? (
               <p className="text-[11px] text-muted-foreground mt-0.5 ml-7 leading-tight hidden sm:block">

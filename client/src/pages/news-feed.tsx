@@ -95,7 +95,7 @@ function ArticleCard({ article, onDismiss }: { article: Article; onDismiss: (id:
         </Card>
       </a>
       <button
-        className="absolute top-2.5 right-2.5 p-1.5 rounded-lg bg-background/90 backdrop-blur-sm border border-border/40 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100 transition-all duration-200 hover:bg-destructive/10 hover:border-destructive/30 hover:text-destructive z-10"
+        className="absolute bottom-2.5 right-2.5 p-1.5 rounded-lg bg-background/90 backdrop-blur-sm border border-border/40 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100 transition-all duration-200 hover:bg-destructive/10 hover:border-destructive/30 hover:text-destructive z-10"
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -328,7 +328,7 @@ export default function NewsFeed() {
       <div className="border-b border-border/60 p-3 md:p-4 space-y-2.5 md:space-y-3">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5 min-w-0">
-            <h1 className="text-base md:text-lg font-bold tracking-tight" data-testid="text-page-title">News Feed</h1>
+            <h1 className="text-lg font-semibold tracking-tight" data-testid="text-page-title">News Feed</h1>
             <Badge variant="secondary" className="shrink-0 text-[10px] md:text-xs font-semibold rounded-full px-2.5" data-testid="badge-article-count">
               {hasActiveFilters ? `${totalCount} results` : `${totalCount}`}
             </Badge>
