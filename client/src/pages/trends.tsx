@@ -19,6 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { VoiceInputButton } from "@/components/VoiceInputButton";
 import { ConfirmDestructive } from "@/components/confirm-destructive";
@@ -164,7 +165,7 @@ function TrendPresentationView({ preview }: { preview: ContentPreview }) {
                   {slide.speakerNotes && (
                     <div className="pt-2 border-t border-border/50">
                       <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 font-semibold">Speaker Notes</p>
-                      <p className="text-xs text-foreground/70 leading-relaxed">{slide.speakerNotes}</p>
+                      <p className="text-xs text-muted-foreground leading-relaxed">{slide.speakerNotes}</p>
                     </div>
                   )}
                 </div>
@@ -532,7 +533,7 @@ function TrendContentGenerator({ name, description, category, model, idSuffix }:
                     <Button variant="ghost" size="sm" onClick={resetCreationPrompt} className="h-7 text-xs" data-testid="button-trend-cancel-creation"><X className="h-3 w-3 mr-1" />Cancel</Button>
                   </div>
                   {contentAcknowledgment && <p className="text-xs text-foreground/80 leading-relaxed">{contentAcknowledgment}</p>}
-                  <p className="text-[10px] text-muted-foreground">Answer what resonates. Your answers directly shape the final {creationMode === "blog" ? "blog" : creationMode === "webinar" ? "webinar" : "deck"}.</p>
+                  <p className="text-xs text-muted-foreground">Answer what resonates. Your answers directly shape the final {creationMode === "blog" ? "blog" : creationMode === "webinar" ? "webinar" : "deck"}.</p>
                   <div className="space-y-2.5">
                     {contentQuestions.map((q, qi) => (
                       <div key={q.id} className="rounded-md border border-border bg-background p-2.5" data-testid={`trend-question-${qi}`}>
@@ -540,7 +541,7 @@ function TrendContentGenerator({ name, description, category, model, idSuffix }:
                           <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold mt-0.5 ${creationMode === "blog" ? "bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-400" : creationMode === "webinar" ? "bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-400" : "bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-400"}`}>{qi + 1}</span>
                           <div className="flex-1 min-w-0">
                             <p className="text-xs font-medium text-foreground leading-snug">{q.question}</p>
-                            <p className="text-[10px] text-muted-foreground mt-0.5 italic">{q.why}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5 italic">{q.why}</p>
                           </div>
                         </div>
                         <div className="relative">
@@ -687,14 +688,11 @@ const DATE_RANGES = [
 ];
 
 const CHART_COLORS = [
-  "hsl(221, 83%, 53%)",
-  "hsl(262, 83%, 58%)",
-  "hsl(160, 60%, 45%)",
-  "hsl(38, 92%, 50%)",
-  "hsl(340, 75%, 55%)",
-  "hsl(190, 80%, 42%)",
-  "hsl(280, 60%, 50%)",
-  "hsl(25, 90%, 55%)",
+  "hsl(var(--chart-1))",
+  "hsl(var(--chart-2))",
+  "hsl(var(--chart-3))",
+  "hsl(var(--chart-4))",
+  "hsl(var(--chart-5))",
 ];
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -811,7 +809,14 @@ function TrendCard({ trend, onDrillDown, isWatched, onWatch, model }: {
       </p>
       <div className="flex items-center justify-between gap-1 flex-wrap">
         <div className="flex items-center gap-2">
-          <div className="h-1.5 w-16 bg-muted rounded-full overflow-hidden">
+          <div
+            className="h-1.5 w-16 bg-muted rounded-full overflow-hidden"
+            role="progressbar"
+            aria-valuenow={confidencePct}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label="Confidence"
+          >
             <div
               className="h-full bg-primary rounded-full transition-all"
               style={{ width: `${confidencePct}%` }}
@@ -1128,14 +1133,11 @@ interface DemandbaseMentionsData {
 }
 
 const DB_CATEGORY_COLORS = [
-  "hsl(217, 91%, 60%)",
-  "hsl(142, 71%, 45%)",
-  "hsl(262, 83%, 58%)",
-  "hsl(24, 95%, 53%)",
-  "hsl(349, 89%, 60%)",
-  "hsl(186, 73%, 46%)",
-  "hsl(45, 93%, 47%)",
-  "hsl(330, 81%, 60%)",
+  "hsl(var(--chart-1))",
+  "hsl(var(--chart-2))",
+  "hsl(var(--chart-3))",
+  "hsl(var(--chart-4))",
+  "hsl(var(--chart-5))",
 ];
 
 function DemandbaseIntelChart({ data }: { data: DemandbaseMentionsData }) {
@@ -1160,17 +1162,17 @@ function DemandbaseIntelChart({ data }: { data: DemandbaseMentionsData }) {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div className="rounded-lg border border-border p-3 text-center">
           <p className="text-2xl font-bold text-primary" data-testid="text-db-total-mentions">{data.total}</p>
-          <p className="text-[10px] text-muted-foreground">Total Mentions</p>
+          <p className="text-xs text-muted-foreground">Total Mentions</p>
         </div>
         <div className="rounded-lg border border-border p-3 text-center">
           <p className="text-2xl font-bold text-foreground" data-testid="text-db-days-active">{data.byDate.length}</p>
-          <p className="text-[10px] text-muted-foreground">Days with Coverage</p>
+          <p className="text-xs text-muted-foreground">Days with Coverage</p>
         </div>
         <div className="rounded-lg border border-border p-3 text-center">
           <p className="text-2xl font-bold text-foreground" data-testid="text-db-avg-per-day">
             {data.byDate.length > 0 ? (data.total / data.byDate.length).toFixed(1) : "0"}
           </p>
-          <p className="text-[10px] text-muted-foreground">Avg. per Day</p>
+          <p className="text-xs text-muted-foreground">Avg. per Day</p>
         </div>
       </div>
 
@@ -1386,7 +1388,7 @@ function OldTrendsSection({
               <div className="flex items-center gap-1 shrink-0">
                 <ConfirmDestructive
                   title={`Delete "${trend.title}"?`}
-                  description="This AI brief report is permanently deleted. This can't be undone."
+                  description="This AI report is permanently deleted. This can't be undone."
                   onConfirm={() => onDelete(trend.id)}
                 >
                   <Button
@@ -1600,7 +1602,14 @@ function WatchlistItemCard({ item, onRemove, onUpdate }: {
                       <span className="capitalize">{entry.momentum}</span>
                     </div>
                     <div className="flex items-center gap-1">
-                      <div className="h-1.5 w-10 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className="h-1.5 w-10 bg-muted rounded-full overflow-hidden"
+                        role="progressbar"
+                        aria-valuenow={Math.round(entry.confidence * 100)}
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        aria-label="Confidence"
+                      >
                         <div className="h-full bg-primary rounded-full" style={{ width: `${Math.round(entry.confidence * 100)}%` }} />
                       </div>
                       <span className="text-muted-foreground">{Math.round(entry.confidence * 100)}%</span>
@@ -1692,8 +1701,6 @@ export default function Trends() {
   const [customDateRange, setCustomDateRange] = useState<{ from?: Date; to?: Date } | undefined>();
   const [category, setCategory] = useState("all");
   const [selectedCompetitors, setSelectedCompetitors] = useState<string[]>([]);
-  const [dbDateRange, setDbDateRange] = useState("30");
-  const [dbCustomDateRange, setDbCustomDateRange] = useState<{ from?: Date; to?: Date } | undefined>();
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [activeViewId, setActiveViewId] = useState<number | null>(null);
   const [snapshotDays, setSnapshotDays] = useState("30");
@@ -1721,13 +1728,13 @@ export default function Trends() {
   });
 
   const demandbaseQueryUrl = useMemo(() => {
-    const params = new URLSearchParams({ days: dbDateRange });
-    if (dbDateRange === "custom" && dbCustomDateRange?.from && dbCustomDateRange?.to) {
-      params.set("dateFrom", dbCustomDateRange.from.toISOString().split("T")[0]);
-      params.set("dateTo", dbCustomDateRange.to.toISOString().split("T")[0]);
+    const params = new URLSearchParams({ days: dateRange });
+    if (dateRange === "custom" && customDateRange?.from && customDateRange?.to) {
+      params.set("dateFrom", customDateRange.from.toISOString().split("T")[0]);
+      params.set("dateTo", customDateRange.to.toISOString().split("T")[0]);
     }
     return `/api/analytics/demandbase-mentions?${params.toString()}`;
-  }, [dbDateRange, dbCustomDateRange]);
+  }, [dateRange, customDateRange]);
 
   const demandbaseQuery = useQuery<DemandbaseMentionsData>({
     queryKey: [demandbaseQueryUrl],
@@ -1972,35 +1979,25 @@ export default function Trends() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
-          <Button
-            variant={activeTab === "dashboard" ? "default" : "ghost"}
-            size="sm"
-            onClick={() => setActiveTab("dashboard")}
-            data-testid="button-tab-dashboard"
-          >
-            <BarChart3 className="h-4 w-4 mr-1.5" />
-            Dashboard
-          </Button>
-          <Button
-            variant={activeTab === "briefs" ? "default" : "ghost"}
-            size="sm"
-            onClick={() => setActiveTab("briefs")}
-            data-testid="button-tab-briefs"
-          >
-            <FileText className="h-4 w-4 mr-1.5" />
-            AI Briefs ({trends.length})
-          </Button>
-          <Button
-            variant={activeTab === "watchlist" ? "default" : "ghost"}
-            size="sm"
-            onClick={() => setActiveTab("watchlist")}
-            data-testid="button-tab-watchlist"
-          >
-            <Bookmark className="h-4 w-4 mr-1.5" />
-            Watchlist {(watchlistQuery.data?.length || 0) > 0 ? `(${watchlistQuery.data?.length})` : ""}
-          </Button>
-        </div>
+        <Tabs
+          value={activeTab}
+          onValueChange={(val) => setActiveTab(val as "dashboard" | "briefs" | "watchlist")}
+        >
+          <TabsList>
+            <TabsTrigger value="dashboard" data-testid="button-tab-dashboard">
+              <BarChart3 className="h-4 w-4 mr-1.5" />
+              Dashboard
+            </TabsTrigger>
+            <TabsTrigger value="briefs" data-testid="button-tab-briefs">
+              <FileText className="h-4 w-4 mr-1.5" />
+              AI Reports ({trends.length})
+            </TabsTrigger>
+            <TabsTrigger value="watchlist" data-testid="button-tab-watchlist">
+              <Bookmark className="h-4 w-4 mr-1.5" />
+              Watchlist {(watchlistQuery.data?.length || 0) > 0 ? `(${watchlistQuery.data?.length})` : ""}
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
 
       <div className="flex-1 overflow-auto p-4">
@@ -2108,8 +2105,8 @@ export default function Trends() {
                           onValueChange={(val) => setSelectedSnapshotId(parseInt(val))}
                         >
                           <SelectTrigger className="w-64" data-testid="select-snapshot-history">
-                            <History className="h-3.5 w-3.5 mr-1.5" />
-                            <span className="text-xs">History</span>
+                            <History className="h-3.5 w-3.5 mr-1.5 shrink-0" />
+                            <SelectValue placeholder="History" />
                           </SelectTrigger>
                           <SelectContent>
                             {parsedSnapshots.map((snap) => (
@@ -2182,7 +2179,7 @@ export default function Trends() {
                                   <h4 className="text-xs font-semibold text-foreground leading-tight mb-1">
                                     {signal.name}
                                   </h4>
-                                  <p className="text-[10px] text-muted-foreground leading-relaxed">
+                                  <p className="text-xs text-muted-foreground leading-relaxed">
                                     {signal.description}
                                   </p>
                                   <div className="flex items-center justify-between gap-2 mt-1.5">
@@ -2278,8 +2275,8 @@ export default function Trends() {
                       }}
                     >
                       <SelectTrigger className="w-36" data-testid="select-saved-view">
-                        <Eye className="h-3.5 w-3.5 mr-1.5" />
-                        <span className="text-xs">Saved Views</span>
+                        <Eye className="h-3.5 w-3.5 mr-1.5 shrink-0" />
+                        <SelectValue placeholder="Saved Views" />
                       </SelectTrigger>
                       <SelectContent>
                         {views.map((view) => (
@@ -2346,9 +2343,9 @@ export default function Trends() {
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-                  <Select value={dbDateRange} onValueChange={(val) => {
-                    setDbDateRange(val);
-                    if (val !== "custom") setDbCustomDateRange(undefined);
+                  <Select value={dateRange} onValueChange={(val) => {
+                    setDateRange(val);
+                    if (val !== "custom") setCustomDateRange(undefined);
                   }}>
                     <SelectTrigger className="w-28" data-testid="select-db-date-range">
                       <SelectValue />
@@ -2362,10 +2359,10 @@ export default function Trends() {
                       <SelectItem value="custom">Custom Range</SelectItem>
                     </SelectContent>
                   </Select>
-                  {dbDateRange === "custom" && (
+                  {dateRange === "custom" && (
                     <DateRangePicker
-                      dateRange={dbCustomDateRange}
-                      onDateRangeChange={(range) => setDbCustomDateRange(range ? { from: range.from, to: range.to } : undefined)}
+                      dateRange={customDateRange}
+                      onDateRangeChange={(range) => setCustomDateRange(range ? { from: range.from, to: range.to } : undefined)}
                     />
                   )}
                 </div>
@@ -2389,7 +2386,7 @@ export default function Trends() {
                 data-testid="button-generate-trends"
               >
                 <RefreshCw className={`h-4 w-4 mr-1.5 ${generateMutation.isPending ? "animate-spin" : ""}`} />
-                {generateMutation.isPending ? "Analyzing..." : "Generate AI Brief"}
+                {generateMutation.isPending ? "Analyzing..." : "Generate AI Report"}
               </Button>
             </div>
             {trendsQuery.isLoading ? (
@@ -2412,10 +2409,10 @@ export default function Trends() {
                   <BookOpen className="h-8 w-8 text-primary" />
                 </div>
                 <h2 className="text-base font-semibold mb-1" data-testid="text-no-trends">
-                  No AI Trend Briefs Yet
+                  No AI Trend Reports Yet
                 </h2>
                 <p className="text-sm text-muted-foreground mb-6 max-w-md">
-                  Click "Generate AI Brief" to have AI review your news articles and produce a detailed analysis report.
+                  Click "Generate AI Report" to have AI review your news articles and produce a detailed analysis report.
                 </p>
                 <Button
                   onClick={() => generateMutation.mutate()}
@@ -2423,7 +2420,7 @@ export default function Trends() {
                   data-testid="button-generate-trends-empty"
                 >
                   <RefreshCw className={`h-4 w-4 mr-1.5 ${generateMutation.isPending ? "animate-spin" : ""}`} />
-                  {generateMutation.isPending ? "Analyzing..." : "Generate First Brief"}
+                  {generateMutation.isPending ? "Analyzing..." : "Generate First Report"}
                 </Button>
               </div>
             ) : (

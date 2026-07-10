@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { VoiceInputButton } from "@/components/VoiceInputButton";
 import { ConfirmDestructive } from "@/components/confirm-destructive";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -1782,7 +1783,7 @@ function ProductsTab() {
           <Package className="h-12 w-12 mx-auto text-muted-foreground/30" />
           <div>
             <h3 className="font-medium text-muted-foreground">No product knowledge yet</h3>
-            <p className="text-sm text-muted-foreground/70 mt-1">
+            <p className="text-sm text-muted-foreground mt-1">
               Auto-generate structured product entries from Demandbase's knowledge base, then review and refine each one.
             </p>
           </div>
@@ -2091,40 +2092,34 @@ export default function DbPov() {
       <div className="max-w-5xl mx-auto p-6 space-y-6">
         <div>
           <h1 className="text-lg font-semibold flex items-center gap-2" data-testid="text-dbpov-title">
-            <Database className="h-6 w-6 text-primary" />
-            DB Point of View
+            <Database className="h-5 w-5 text-primary" />
+            Knowledge Base
           </h1>
-          <p className="text-muted-foreground mt-1">
-            Demandbase knowledge base — edit, add, or remove entries to keep the AI agent accurate
+          <p className="text-xs text-muted-foreground mt-1">
+            The Demandbase point of view — approved product knowledge that grounds the AI assistants. Edit, add, or remove entries to keep them accurate.
           </p>
         </div>
 
-        <div className="flex gap-1 border-b" data-testid="tabs-dbpov">
-          <button
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === "knowledge" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}
-            onClick={() => setActiveTab("knowledge")}
-            data-testid="tab-knowledge-base"
-          >
-            <BookOpen className="h-4 w-4 inline mr-2" />
-            Knowledge Base
-          </button>
-          <button
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === "products" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}
-            onClick={() => setActiveTab("products")}
-            data-testid="tab-products"
-          >
-            <Package className="h-4 w-4 inline mr-2" />
-            Products
-          </button>
-          <button
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === "sources" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}
-            onClick={() => setActiveTab("sources")}
-            data-testid="tab-sources"
-          >
-            <Globe className="h-4 w-4 inline mr-2" />
-            Sources
-          </button>
-        </div>
+        <Tabs
+          value={activeTab}
+          onValueChange={(v) => setActiveTab(v as "knowledge" | "sources" | "products")}
+          data-testid="tabs-dbpov"
+        >
+          <TabsList>
+            <TabsTrigger value="knowledge" data-testid="tab-knowledge-base">
+              <BookOpen className="h-4 w-4 mr-2" />
+              Knowledge Base
+            </TabsTrigger>
+            <TabsTrigger value="products" data-testid="tab-products">
+              <Package className="h-4 w-4 mr-2" />
+              Products
+            </TabsTrigger>
+            <TabsTrigger value="sources" data-testid="tab-sources">
+              <Globe className="h-4 w-4 mr-2" />
+              Sources
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
 
         {activeTab === "knowledge" && <KnowledgeBaseTab />}
         {activeTab === "products" && <ProductsTab />}

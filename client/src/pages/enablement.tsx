@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Target, Send, Copy, Check, RotateCcw, Swords, MessageSquare, Mail, FileText, BarChart3, Shield, Presentation, ExternalLink, Loader2, ArrowRight, X, Eye, Save, RefreshCw, ChevronRight, Clock, Trash2, ChevronDown } from "lucide-react";
 import { VoiceInputButton } from "@/components/VoiceInputButton";
 import { ModelSelector, useSelectedModel, MODEL_DISPLAY } from "@/components/ModelSelector";
@@ -187,7 +188,7 @@ function EnablementPreviewModal({
                 Refine
               </Button>
             </div>
-            <p className="text-[10px] text-muted-foreground text-center">
+            <p className="text-xs text-muted-foreground text-center">
               Content is auto-saved. Use Save &amp; Done to name it and return home, or export to Google Drive above.
             </p>
           </div>
@@ -938,7 +939,7 @@ export default function Enablement() {
             {historyQuery.isLoading ? (
               <div className="space-y-3">
                 {Array.from({ length: 3 }).map((_, i) => (
-                  <div key={i} className="h-16 rounded-lg bg-muted/40 animate-pulse" />
+                  <Skeleton key={i} className="h-16 w-full rounded-lg" />
                 ))}
               </div>
             ) : historyItems.length === 0 ? (
@@ -1069,7 +1070,7 @@ export default function Enablement() {
                   </div>
                 )}
 
-                <p className="text-[10px] text-muted-foreground mb-3">
+                <p className="text-xs text-muted-foreground mb-3">
                   Answer what resonates — skip what doesn't. Your answers directly shape the final {contentTypeLabel}.
                 </p>
 
@@ -1083,7 +1084,7 @@ export default function Enablement() {
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-foreground leading-snug" data-testid={`text-question-${i}`}>{q.question}</p>
                           {q.why && (
-                            <p className="text-[10px] text-muted-foreground mt-0.5 italic">{q.why}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5 italic">{q.why}</p>
                           )}
                         </div>
                       </div>
@@ -1107,7 +1108,7 @@ export default function Enablement() {
                 </div>
 
                 <div className="flex items-center justify-between mt-4 pt-3 border-t border-border">
-                  <p className="text-[10px] text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     {answeredCount} of {questions.length} answered{followUpRound > 1 ? ` (follow-up ${followUpRound})` : ""}
                   </p>
                   <div className="flex items-center gap-2">
@@ -1171,7 +1172,7 @@ export default function Enablement() {
                 <span className="text-sm text-muted-foreground">
                   {isRefining ? "Refining your content..." : "Creating your content..."}
                 </span>
-                <p className="text-[10px] text-muted-foreground max-w-xs text-center">
+                <p className="text-xs text-muted-foreground max-w-xs text-center">
                   This may take a moment — the AI is incorporating market intelligence and your discovery answers.
                 </p>
               </div>

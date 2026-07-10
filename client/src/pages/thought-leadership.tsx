@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Lightbulb, Clock, Zap, ChevronDown, ChevronRight, Trash2,
   Mic, Pen, BookOpen, Target, Users, Loader2, MessageSquare, Award, FileText,
@@ -308,7 +309,7 @@ function PresentationContentView({ preview }: { preview: PreviewData }) {
                       <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 font-semibold flex items-center gap-1">
                         <MessageSquare className="h-2.5 w-2.5" />Speaker Notes
                       </p>
-                      <p className="text-xs text-foreground/70 leading-relaxed">{slide.speakerNotes}</p>
+                      <p className="text-xs text-muted-foreground leading-relaxed">{slide.speakerNotes}</p>
                     </div>
                   )}
                 </div>
@@ -950,7 +951,7 @@ function OpportunityCard({ opp, index, model }: { opp: ThoughtLeadershipOpportun
                     </p>
                   )}
 
-                  <p className="text-[10px] text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     Answer what resonates — skip what doesn't. Your answers directly shape the final {creationMode === "blog" ? "blog" : creationMode === "webinar" ? "webinar" : "deck"}.
                   </p>
 
@@ -967,7 +968,7 @@ function OpportunityCard({ opp, index, model }: { opp: ThoughtLeadershipOpportun
                           </span>
                           <div className="flex-1 min-w-0">
                             <p className="text-xs font-medium text-foreground leading-snug" data-testid={`text-content-question-${qi}`}>{q.question}</p>
-                            <p className="text-[10px] text-muted-foreground mt-0.5 italic">{q.why}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5 italic">{q.why}</p>
                           </div>
                         </div>
                         <div className="relative">
@@ -990,7 +991,7 @@ function OpportunityCard({ opp, index, model }: { opp: ThoughtLeadershipOpportun
                   </div>
 
                   <div className="flex items-center justify-between pt-2 border-t border-border">
-                    <p className="text-[10px] text-muted-foreground">{contentAnsweredCount} of {contentQuestions.length} answered{contentFollowUpRound > 1 ? ` (follow-up ${contentFollowUpRound})` : ""}</p>
+                    <p className="text-xs text-muted-foreground">{contentAnsweredCount} of {contentQuestions.length} answered{contentFollowUpRound > 1 ? ` (follow-up ${contentFollowUpRound})` : ""}</p>
                     <div className="flex items-center gap-2">
                       <Button
                         variant="ghost"
@@ -1539,7 +1540,7 @@ function MyIdeasTab({ model }: { model: string }) {
                       <p className="text-sm font-medium text-foreground leading-snug" data-testid={`text-question-${idx}`}>
                         {q.question}
                       </p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5 italic">{q.why}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5 italic">{q.why}</p>
                     </div>
                   </div>
                   <div className="relative">
@@ -2042,20 +2043,13 @@ export default function ThoughtLeadershipPage() {
 
   const items = tlQuery.data || [];
 
-  const tabClass = (tab: string) =>
-    `px-4 py-2 text-sm font-medium border-b-2 transition-colors cursor-pointer ${
-      activeTab === tab
-        ? "border-amber-500 text-amber-700 dark:text-amber-400"
-        : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
-    }`;
-
   return (
     <div className="flex flex-col h-full">
       <div className="border-b p-4 pb-0">
         <div className="flex items-start justify-between gap-2 pb-2">
           <div className="min-w-0">
             <h1 className="text-lg font-semibold flex items-center gap-2" data-testid="text-thought-leadership-title">
-              <Lightbulb className="h-5 w-5 text-amber-500 shrink-0" />
+              <Lightbulb className="h-5 w-5 text-primary shrink-0" />
               Thought Leadership
             </h1>
             <p className="text-xs text-muted-foreground hidden sm:block">
@@ -2099,38 +2093,22 @@ export default function ThoughtLeadershipPage() {
         <div className="flex items-center justify-between pb-2">
           <ModelSelector value={selectedModel} onChange={setSelectedModel} compact />
         </div>
-        <div className="flex gap-0">
-          <button
-            className={tabClass("analyses")}
-            onClick={() => setActiveTab("analyses")}
-            data-testid="tab-analyses"
-          >
-            <span className="flex items-center gap-1.5">
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "analyses" | "ideas" | "documents")}>
+          <TabsList className="mb-3">
+            <TabsTrigger value="analyses" className="gap-1.5" data-testid="tab-analyses">
               <BookOpen className="h-3.5 w-3.5" />
               AI Analyses
-            </span>
-          </button>
-          <button
-            className={tabClass("ideas")}
-            onClick={() => setActiveTab("ideas")}
-            data-testid="tab-ideas"
-          >
-            <span className="flex items-center gap-1.5">
+            </TabsTrigger>
+            <TabsTrigger value="ideas" className="gap-1.5" data-testid="tab-ideas">
               <Pen className="h-3.5 w-3.5" />
               My Ideas
-            </span>
-          </button>
-          <button
-            className={tabClass("documents")}
-            onClick={() => setActiveTab("documents")}
-            data-testid="tab-documents"
-          >
-            <span className="flex items-center gap-1.5">
+            </TabsTrigger>
+            <TabsTrigger value="documents" className="gap-1.5" data-testid="tab-documents">
               <Upload className="h-3.5 w-3.5" />
               Documents
-            </span>
-          </button>
-        </div>
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
 
       {activeTab === "analyses" ? (

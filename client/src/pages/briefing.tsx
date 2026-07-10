@@ -846,9 +846,9 @@ export default function BriefingPage() {
   return (
     <div className="flex flex-col h-full">
       <div className="border-b p-4">
-        <h1 className="text-lg font-semibold" data-testid="text-briefing-title">Intelligence Center</h1>
+        <h1 className="text-lg font-semibold" data-testid="text-briefing-title">Daily Briefing</h1>
         <p className="text-xs text-muted-foreground">
-          AI-generated briefings, comparisons, and historical analysis
+          Your intelligence center — AI-generated briefings, comparisons, and historical analysis
         </p>
       </div>
 

@@ -271,7 +271,7 @@ function CompetitorResearchTab() {
           <CardContent className="flex flex-col items-center justify-center py-10">
             <Building2 className="h-8 w-8 text-muted-foreground/50 mb-2" />
             <p className="text-sm text-muted-foreground mb-1">No competitors tracked yet</p>
-            <p className="text-xs text-muted-foreground/70">Add competitors to start crawling their websites for intelligence.</p>
+            <p className="text-xs text-muted-foreground">Add competitors to start crawling their websites for intelligence.</p>
           </CardContent>
         </Card>
       ) : (
@@ -369,7 +369,7 @@ function CrawlJobsList({ jobs, isLoading }: { jobs: CrawlJob[]; isLoading: boole
         <CardContent className="flex flex-col items-center justify-center py-8">
           <FileText className="h-7 w-7 text-muted-foreground/50 mb-2" />
           <p className="text-sm text-muted-foreground">No crawl jobs yet</p>
-          <p className="text-xs text-muted-foreground/70">Start a crawl to begin extracting intelligence.</p>
+          <p className="text-xs text-muted-foreground">Start a crawl to begin extracting intelligence.</p>
         </CardContent>
       </Card>
     );
@@ -777,7 +777,7 @@ export default function ResearchPage() {
       <div className="max-w-5xl mx-auto p-4 md:p-6 space-y-6">
         <div>
           <h1 className="text-lg font-semibold tracking-tight" data-testid="text-research-title">Research</h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             Crawl websites to extract competitive intelligence and product knowledge.
           </p>
         </div>

@@ -559,10 +559,10 @@ export default function CompanyAnalysisPage() {
       <div className="max-w-4xl mx-auto p-6 space-y-6">
         <div>
           <h1 className="text-lg font-semibold flex items-center gap-2" data-testid="text-page-title">
-            <Building2 className="h-6 w-6 text-primary" />
+            <Building2 className="h-5 w-5 text-primary" />
             Public Company Analysis
           </h1>
-          <p className="text-muted-foreground mt-1">
+          <p className="text-xs text-muted-foreground mt-1">
             Analyze public companies' financials, strategy, and Demandbase sales opportunities
           </p>
         </div>
@@ -626,7 +626,7 @@ export default function CompanyAnalysisPage() {
             <CardContent className="py-12 text-center">
               <Building2 className="h-12 w-12 mx-auto text-muted-foreground/30 mb-3" />
               <h3 className="font-medium text-muted-foreground">No analyses yet</h3>
-              <p className="text-sm text-muted-foreground/70 mt-1">
+              <p className="text-sm text-muted-foreground mt-1">
                 Enter a company website above to generate a comprehensive financial and strategic analysis
               </p>
             </CardContent>

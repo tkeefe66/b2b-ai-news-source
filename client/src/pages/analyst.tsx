@@ -286,6 +286,7 @@ export default function Analyst() {
       } catch (err) {
         console.error("Failed to update session title", err);
         toast({ title: "Couldn't save chat title", description: "The server didn't respond. Try again.", variant: "destructive" });
+        return;
       }
     }
     startNewChat();
@@ -384,6 +385,7 @@ export default function Analyst() {
               onClick={() => setShowHistory(!showHistory)}
               className="h-7 text-[11px] px-2"
               aria-label={showHistory ? "Hide chat history" : "Show chat history"}
+              title={showHistory ? "Hide chat history" : "Show chat history"}
               data-testid="button-toggle-history"
             >
               <Clock className="h-3.5 w-3.5 mr-1" />

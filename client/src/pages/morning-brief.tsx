@@ -11,6 +11,7 @@ import { format, parseISO } from "date-fns";
 import type { Brief } from "@shared/schema";
 import { briefPayloadSchema, type BriefPayload } from "@shared/brief-payload";
 import { HowBriefWorks } from "@/components/how-brief-works";
+import { ConfirmDestructive } from "@/components/confirm-destructive";
 
 const STATUS_LABEL: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   sent: { label: "Sent", variant: "default" },
@@ -33,7 +34,7 @@ function parsePayload(brief: Brief): BriefPayload | null {
 function PayloadView({ payload }: { payload: BriefPayload }) {
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-bold text-primary">{payload.headline}</h2>
+      <h2 className="text-xl font-bold text-foreground">{payload.headline}</h2>
 
       <section>
         <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Top stories</h3>
@@ -53,8 +54,8 @@ function PayloadView({ payload }: { payload: BriefPayload }) {
               <span className="text-xs text-muted-foreground ml-2">{s.sourceName}</span>
               <p className="text-sm mt-1">{s.whyItMatters}</p>
               {s.dbAngle && (
-                <div className="mt-2 rounded-md bg-orange-50 dark:bg-orange-950/30 px-3 py-2">
-                  <span className="text-[11px] font-bold uppercase tracking-wide text-orange-600 dark:text-orange-400">
+                <div className="mt-2 rounded-md border border-sunset/40 bg-sunset/10 px-3 py-2">
+                  <span className="text-[11px] font-bold uppercase tracking-wide text-sunset">
                     Demandbase angle{s.dbAngle.strength === "moderate" ? " (moderate)" : ""}
                   </span>
                   <p className="text-sm mt-0.5">{s.dbAngle.text}</p>
@@ -146,16 +147,23 @@ export default function MorningBrief() {
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
             <h1 className="text-lg font-semibold flex items-center gap-2">
-              <Mail className="h-6 w-6" /> Morning Brief
+              <Mail className="h-5 w-5 text-primary" /> Morning Brief
             </h1>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               Weekday email digest — archive of every send.
             </p>
           </div>
-          <Button onClick={() => sendNow.mutate()} disabled={sendNow.isPending} data-testid="button-send-test">
-            <Send className="h-4 w-4 mr-2" />
-            {sendNow.isPending ? "Composing & sending…" : "Send test brief now"}
-          </Button>
+          <ConfirmDestructive
+            title="Send a test brief now?"
+            description="This composes a brief with AI and immediately sends a real email to all configured recipients. It never blocks or replaces the regular daily send."
+            confirmLabel="Send test email"
+            onConfirm={() => sendNow.mutate()}
+          >
+            <Button disabled={sendNow.isPending} data-testid="button-send-test">
+              <Send className="h-4 w-4 mr-2" />
+              {sendNow.isPending ? "Composing & sending…" : "Send test brief now"}
+            </Button>
+          </ConfirmDestructive>
         </div>
 
         {!isLoading && <HowBriefWorks defaultOpen={!briefs || briefs.length === 0} />}

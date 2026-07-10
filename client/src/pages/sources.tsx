@@ -21,6 +21,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useState, useMemo, useCallback } from "react";
 import { VoiceInputButton } from "@/components/VoiceInputButton";
 import { GoogleDrivePickerButton } from "@/components/google-drive-picker";
@@ -1012,11 +1013,11 @@ function TopicTracker({ sources }: { sources: Source[] }) {
                       <span className={`text-xs font-medium ${catTextMap[category] || "text-muted-foreground"}`}>
                         {category}
                       </span>
-                      <span className="text-[10px] text-muted-foreground">
+                      <span className="text-xs text-muted-foreground">
                         ({catSources.length})
                       </span>
                       {isDropTarget && (
-                        <span className="text-[10px] font-medium text-purple-600 dark:text-purple-400">Click to move here</span>
+                        <span className="text-xs font-medium text-purple-600 dark:text-purple-400">Click to move here</span>
                       )}
                     </div>
                     <div className={`flex flex-wrap gap-1.5 pl-4 ${isSelecting ? "min-h-[36px]" : "min-h-[28px]"}`}>
@@ -1080,7 +1081,7 @@ function TopicTracker({ sources }: { sources: Source[] }) {
                         <div className={`flex items-center justify-center w-full rounded-md border border-dashed py-1.5 ${
                           isDropTarget ? "border-purple-400 bg-purple-50/50 dark:border-purple-600 dark:bg-purple-900/20" : "border-border/50"
                         }`}>
-                          <span className={`text-[10px] italic ${isDropTarget ? "text-purple-600 dark:text-purple-400" : "text-muted-foreground"}`}>
+                          <span className={`text-xs italic ${isDropTarget ? "text-purple-600 dark:text-purple-400" : "text-muted-foreground"}`}>
                             Click to move here
                           </span>
                         </div>
@@ -2292,7 +2293,7 @@ function KnowledgeBaseSection() {
                                       </div>
                                       <p className={`text-[11px] text-muted-foreground leading-relaxed ${expandedEntryIds.has(entry.id) ? "" : "line-clamp-4"}`}>{entry.content}</p>
                                       <button
-                                        className="text-[10px] text-blue-500 hover:text-blue-600 mt-0.5 font-medium"
+                                        className="text-xs text-blue-500 hover:text-blue-600 mt-0.5 font-medium"
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           setExpandedEntryIds(prev => {
@@ -2307,7 +2308,7 @@ function KnowledgeBaseSection() {
                                         {expandedEntryIds.has(entry.id) ? "Show less" : "Read full entry"}
                                       </button>
                                       {entry.sourceFilename && (
-                                        <p className="text-[10px] text-muted-foreground/60 mt-1">Source: {entry.sourceFilename}</p>
+                                        <p className="text-xs text-muted-foreground mt-1">Source: {entry.sourceFilename}</p>
                                       )}
                                     </div>
                                     <Button
@@ -2396,7 +2397,7 @@ function KnowledgeBaseSection() {
                               {hasPreview && editPreview && (
                                 <div className="border-t border-border mt-2 pt-2 space-y-2" data-testid={`preview-edit-${idx}`}>
                                   <div className="space-y-1">
-                                    <Label className="text-[10px] text-muted-foreground">Title</Label>
+                                    <Label className="text-xs text-muted-foreground">Title</Label>
                                     <Input
                                       value={editPreview.title}
                                       onChange={(e) => setEditPreview({ ...editPreview, title: e.target.value })}
@@ -2405,7 +2406,7 @@ function KnowledgeBaseSection() {
                                     />
                                   </div>
                                   <div className="space-y-1">
-                                    <Label className="text-[10px] text-muted-foreground">Content</Label>
+                                    <Label className="text-xs text-muted-foreground">Content</Label>
                                     <Textarea
                                       value={editPreview.content}
                                       onChange={(e) => setEditPreview({ ...editPreview, content: e.target.value })}
@@ -2580,7 +2581,7 @@ function KnowledgeBaseSection() {
                               <p className="text-xs text-muted-foreground leading-relaxed">{teachResolution.data.explanation}</p>
                               {teachResolution.data.resolution !== "keep" && teachResolution.data.title && (
                                 <div className="rounded border border-border/60 bg-muted/20 p-2 space-y-1">
-                                  <p className="text-[10px] text-muted-foreground font-medium">Proposed Changes:</p>
+                                  <p className="text-xs text-muted-foreground font-medium">Proposed Changes:</p>
                                   <p className="text-xs font-medium">{teachResolution.data.title}</p>
                                   <p className="text-[11px] text-muted-foreground leading-relaxed line-clamp-4">{teachResolution.data.content}</p>
                                 </div>
@@ -2623,7 +2624,7 @@ function KnowledgeBaseSection() {
                 </span>
               </div>
             ) : (
-              <div className="text-[10px] text-muted-foreground mb-1">
+              <div className="text-xs text-muted-foreground mb-1">
                 Showing {filteredEntries.length} of {entries.length} entries
               </div>
             )}
@@ -2632,7 +2633,7 @@ function KnowledgeBaseSection() {
               <div key={category}>
                 <div className="flex items-center gap-2 mb-1.5">
                   <Badge variant="outline" className="text-[10px]">{category}</Badge>
-                  <span className="text-[10px] text-muted-foreground">{catEntries.length} entries</span>
+                  <span className="text-xs text-muted-foreground">{catEntries.length} entries</span>
                 </div>
                 <div className="space-y-1">
                   {catEntries.map((entry) => {
@@ -2681,7 +2682,7 @@ function KnowledgeBaseSection() {
                               </p>
                             )}
                             {expandedEntries.has(entry.id) && entry.sourceUrl && (
-                              <p className="text-[10px] text-muted-foreground mt-1 italic">
+                              <p className="text-xs text-muted-foreground mt-1 italic">
                                 Source: {entry.sourceUrl}
                               </p>
                             )}
@@ -2737,9 +2738,9 @@ function KnowledgeBaseSection() {
                     </div>
                     <p className="text-[11px] text-muted-foreground leading-relaxed line-clamp-3">{entryToDelete.content}</p>
                     <div className="flex flex-col gap-0.5">
-                      <p className="text-[10px] text-muted-foreground/60">Category: {entryToDelete.category}</p>
+                      <p className="text-xs text-muted-foreground">Category: {entryToDelete.category}</p>
                       {(entryToDelete.sourceFilename || entryToDelete.sourceUrl) && (
-                        <p className="text-[10px] text-muted-foreground/60 truncate">
+                        <p className="text-xs text-muted-foreground truncate">
                           Source: {entryToDelete.sourceFilename || entryToDelete.sourceUrl}
                         </p>
                       )}
@@ -3425,45 +3426,34 @@ export default function Sources() {
               Manage RSS feeds, API integrations, and uploaded documents
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            {activeTab === "sources" && sources.length > 0 && (
+          <div
+            className={`flex items-center gap-2 ${activeTab === "sources" ? "" : "invisible"}`}
+            aria-hidden={activeTab !== "sources"}
+          >
+            {sources.length > 0 && (
               <Badge variant="secondary" data-testid="badge-source-count">
                 {sources.filter(s => s.isActive).length} active / {sources.length} total
               </Badge>
             )}
-            {activeTab === "sources" && <AddSourceDialog />}
+            <AddSourceDialog />
           </div>
         </div>
-        <div className="flex gap-1">
-          <button
-            onClick={() => setActiveTab("sources")}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === "sources"
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
-            }`}
-            data-testid="tab-sources"
-          >
-            Sources
-          </button>
-          <button
-            onClick={() => setActiveTab("uploaded")}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${
-              activeTab === "uploaded"
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
-            }`}
-            data-testid="tab-uploaded-sources"
-          >
-            <Upload className="h-3.5 w-3.5" />
-            Uploaded Sources
-            {uploadedBadgeCount > 0 && (
-              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 ml-0.5">
-                {uploadedBadgeCount}
-              </Badge>
-            )}
-          </button>
-        </div>
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "sources" | "uploaded")}>
+          <TabsList className="mb-3">
+            <TabsTrigger value="sources" data-testid="tab-sources">
+              Sources
+            </TabsTrigger>
+            <TabsTrigger value="uploaded" className="gap-1.5" data-testid="tab-uploaded-sources">
+              <Upload className="h-3.5 w-3.5" />
+              Uploaded Sources
+              {uploadedBadgeCount > 0 && (
+                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 ml-0.5">
+                  {uploadedBadgeCount}
+                </Badge>
+              )}
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
       <div className="flex-1 overflow-auto p-4">
         {activeTab === "sources" ? (

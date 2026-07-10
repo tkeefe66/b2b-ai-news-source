@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ExternalLink, Search, Clock, User, RefreshCw, Zap, Newspaper, X, Filter, ThumbsDown, AlertTriangle, Ban, XCircle, Building2, RefreshCcw } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -63,7 +64,7 @@ function ArticleCard({ article, onDismiss }: { article: Article; onDismiss: (id:
                     </span>
                   )}
                   {article.sourceName && (
-                    <span className="text-[11px] text-muted-foreground/70 font-medium" data-testid={`text-source-${article.id}`}>
+                    <span className="text-[11px] text-muted-foreground font-medium" data-testid={`text-source-${article.id}`}>
                       {article.sourceName}
                     </span>
                   )}
@@ -79,7 +80,7 @@ function ArticleCard({ article, onDismiss }: { article: Article; onDismiss: (id:
                 {article.description.replace(/<[^>]*>/g, '').substring(0, 200)}
               </p>
             )}
-            <div className="flex items-center gap-3 text-[11px] text-muted-foreground/60">
+            <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
               <span className="inline-flex items-center gap-1">
                 <Clock className="h-3 w-3" />
                 {formatTimeAgo(article.publishedAt)}
@@ -101,7 +102,7 @@ function ArticleCard({ article, onDismiss }: { article: Article; onDismiss: (id:
           e.stopPropagation();
           onDismiss(article.id);
         }}
-        aria-label="Dismiss article"
+        aria-label="Not relevant — dismiss this article"
         title="Not relevant"
         data-testid={`button-dismiss-${article.id}`}
       >
@@ -335,7 +336,7 @@ export default function NewsFeed() {
           </div>
           <div className="flex items-center gap-2">
             {feedStatusQuery.data?.lastFetchedAt && (
-              <span className="text-[10px] text-muted-foreground/60 hidden md:inline font-medium" data-testid="text-last-updated">
+              <span className="text-[10px] text-muted-foreground hidden md:inline font-medium" data-testid="text-last-updated">
                 Updated {formatTimeAgo(feedStatusQuery.data.lastFetchedAt)}
               </span>
             )}
@@ -353,28 +354,18 @@ export default function NewsFeed() {
           </div>
         </div>
 
-        <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-0.5 w-fit">
-          <Button
-            variant={activeTab === "news" ? "default" : "ghost"}
-            size="sm"
-            className={`h-7 md:h-8 text-xs rounded-md font-medium ${activeTab === "news" ? "shadow-sm" : ""}`}
-            onClick={() => handleTabSwitch("news")}
-            data-testid="button-tab-news"
-          >
-            <Newspaper className="h-3.5 w-3.5 mr-1" />
-            News
-          </Button>
-          <Button
-            variant={activeTab === "company" ? "default" : "ghost"}
-            size="sm"
-            className={`h-7 md:h-8 text-xs rounded-md font-medium ${activeTab === "company" ? "shadow-sm" : ""}`}
-            onClick={() => handleTabSwitch("company")}
-            data-testid="button-tab-company"
-          >
-            <Building2 className="h-3.5 w-3.5 mr-1" />
-            Company Tracking
-          </Button>
-        </div>
+        <Tabs value={activeTab} onValueChange={(val) => handleTabSwitch(val as "news" | "company")} className="w-fit">
+          <TabsList className="h-8 md:h-9" data-testid="tabs-feed-view">
+            <TabsTrigger value="news" className="text-xs font-medium" data-testid="button-tab-news">
+              <Newspaper className="h-3.5 w-3.5 mr-1" />
+              News
+            </TabsTrigger>
+            <TabsTrigger value="company" className="text-xs font-medium" data-testid="button-tab-company">
+              <Building2 className="h-3.5 w-3.5 mr-1" />
+              Company Tracking
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
 
         <div className="flex gap-2">
           <div className="relative flex-1">
