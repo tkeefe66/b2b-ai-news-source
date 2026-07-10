@@ -117,7 +117,7 @@ function PayloadView({ payload }: { payload: BriefPayload }) {
   );
 }
 
-export default function MorningBrief() {
+export default function MorningBrief({ embedded = false }: { embedded?: boolean }) {
   const { toast } = useToast();
   const [selectedId, setSelectedId] = useState<number | null>(null);
 
@@ -141,30 +141,40 @@ export default function MorningBrief() {
   const selected = briefs?.find(b => b.id === selectedId) ?? briefs?.[0];
   const payload = selected ? parsePayload(selected) : null;
 
+  const sendTestButton = (
+    <ConfirmDestructive
+      title="Send a test brief now?"
+      description="This composes a brief with AI and immediately sends a real email to all configured recipients. It never blocks or replaces the regular daily send."
+      confirmLabel="Send test email"
+      onConfirm={() => sendNow.mutate()}
+    >
+      <Button disabled={sendNow.isPending} data-testid="button-send-test">
+        <Send className="h-4 w-4 mr-2" />
+        {sendNow.isPending ? "Composing & sending…" : "Send test brief now"}
+      </Button>
+    </ConfirmDestructive>
+  );
+
   return (
     <div className="h-full overflow-auto">
       <div className="max-w-5xl mx-auto p-4 md:p-6 space-y-4">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div>
-            <h1 className="text-lg font-semibold flex items-center gap-2">
-              <Mail className="h-5 w-5 text-primary" /> Morning Brief
-            </h1>
-            <p className="text-xs text-muted-foreground">
-              Weekday email digest — archive of every send.
-            </p>
+        {embedded ? (
+          <div className="flex items-center justify-end gap-3 flex-wrap">
+            {sendTestButton}
           </div>
-          <ConfirmDestructive
-            title="Send a test brief now?"
-            description="This composes a brief with AI and immediately sends a real email to all configured recipients. It never blocks or replaces the regular daily send."
-            confirmLabel="Send test email"
-            onConfirm={() => sendNow.mutate()}
-          >
-            <Button disabled={sendNow.isPending} data-testid="button-send-test">
-              <Send className="h-4 w-4 mr-2" />
-              {sendNow.isPending ? "Composing & sending…" : "Send test brief now"}
-            </Button>
-          </ConfirmDestructive>
-        </div>
+        ) : (
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <h1 className="text-lg font-semibold flex items-center gap-2">
+                <Mail className="h-5 w-5 text-primary" /> Morning Brief
+              </h1>
+              <p className="text-xs text-muted-foreground">
+                Weekday email digest — archive of every send.
+              </p>
+            </div>
+            {sendTestButton}
+          </div>
+        )}
 
         {!isLoading && <HowBriefWorks defaultOpen={!briefs || briefs.length === 0} />}
 

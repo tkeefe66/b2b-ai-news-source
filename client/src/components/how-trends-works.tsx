@@ -46,13 +46,13 @@ export function HowTrendsWorks({ defaultOpen }: { defaultOpen: boolean }) {
           </section>
 
           <section>
-            <SectionLabel>Dashboard vs. AI Reports</SectionLabel>
+            <SectionLabel>Dashboard vs. Deep Reports</SectionLabel>
             <p>
               These are two separate systems. The Dashboard tab shows structured snapshots —
-              trend cards and charts built from a chosen time window. The AI Reports tab
-              holds long-form written analyses: AI summarizes <em>every</em> article in the
-              database in batches, then synthesizes one report with themes, insights, and
-              takeaways. Generating one never changes the other.
+              trend cards and charts built from a chosen time window. Long-form written
+              analyses now live under Briefings → Deep Reports: AI summarizes <em>every</em>{" "}
+              article in the database in batches, then synthesizes one report with themes,
+              insights, and takeaways. Generating one never changes the other.
             </p>
           </section>
 

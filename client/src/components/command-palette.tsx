@@ -27,6 +27,12 @@ function slugify(title: string) {
   return title.toLowerCase().replace(/\s+/g, "-");
 }
 
+// Extra search terms for nav items that absorbed old, now-removed routes —
+// keeps muscle-memory searches (e.g. "morning brief") hitting the merged entry.
+const EXTRA_SEARCH_TERMS: Record<string, string> = {
+  "/briefings": "morning brief daily briefing email digest reports",
+};
+
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const [, setLocation] = useLocation();
@@ -91,7 +97,7 @@ export function CommandPalette() {
               {navItems.map((item) => (
                 <CommandItem
                   key={item.url}
-                  value={`${item.title} ${item.description}`}
+                  value={`${item.title} ${item.description} ${EXTRA_SEARCH_TERMS[item.url] || ""}`}
                   onSelect={() => runAndClose(() => setLocation(item.url))}
                   data-testid={`command-item-${slugify(item.title)}`}
                 >

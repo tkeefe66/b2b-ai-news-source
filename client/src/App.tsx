@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { Switch, Route } from "wouter";
+import { Switch, Route, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -15,14 +15,13 @@ import NewsFeed from "@/pages/news-feed";
 
 const Trends = lazy(() => import("@/pages/trends"));
 const Analyst = lazy(() => import("@/pages/analyst"));
-const Briefing = lazy(() => import("@/pages/briefing"));
 const Sources = lazy(() => import("@/pages/sources"));
 const Enablement = lazy(() => import("@/pages/enablement"));
 const DbPov = lazy(() => import("@/pages/db-pov"));
 const CompanyAnalysis = lazy(() => import("@/pages/company-analysis"));
 const ThoughtLeadershipPage = lazy(() => import("@/pages/thought-leadership"));
 const Research = lazy(() => import("@/pages/research"));
-const MorningBrief = lazy(() => import("@/pages/morning-brief"));
+const Briefings = lazy(() => import("@/pages/briefings"));
 const NotFound = lazy(() => import("@/pages/not-found"));
 
 function PageLoader() {
@@ -44,8 +43,13 @@ function Router() {
     <Suspense fallback={<PageLoader />}>
       <Switch>
         <Route path="/" component={NewsFeed} />
-        <Route path="/briefing" component={Briefing} />
-        <Route path="/morning-brief" component={MorningBrief} />
+        <Route path="/briefing">
+          <Redirect to="/briefings?tab=on-demand" replace />
+        </Route>
+        <Route path="/morning-brief">
+          <Redirect to="/briefings?tab=morning-brief" replace />
+        </Route>
+        <Route path="/briefings" component={Briefings} />
         <Route path="/trends" component={Trends} />
         <Route path="/analyst" component={Analyst} />
         <Route path="/sources" component={Sources} />

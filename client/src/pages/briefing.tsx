@@ -842,15 +842,17 @@ function TimeMachineTab() {
   );
 }
 
-export default function BriefingPage() {
+export default function BriefingPage({ embedded = false }: { embedded?: boolean }) {
   return (
     <div className="flex flex-col h-full">
-      <div className="border-b p-4">
-        <h1 className="text-lg font-semibold" data-testid="text-briefing-title">Daily Briefing</h1>
-        <p className="text-xs text-muted-foreground">
-          Your intelligence center — AI-generated briefings, comparisons, and historical analysis
-        </p>
-      </div>
+      {!embedded && (
+        <div className="border-b p-4">
+          <h1 className="text-lg font-semibold" data-testid="text-briefing-title">Daily Briefing</h1>
+          <p className="text-xs text-muted-foreground">
+            Your intelligence center — AI-generated briefings, comparisons, and historical analysis
+          </p>
+        </div>
+      )}
 
       <Tabs defaultValue="briefings" className="flex-1 flex flex-col overflow-hidden">
         <div className="border-b px-4">
