@@ -231,7 +231,7 @@ export function GoogleDrivePicker({ open, onOpenChange, onFileSelected, accept }
 
         <div className="flex items-center gap-2">
           {folderStack.length > 0 && (
-            <Button variant="ghost" size="sm" onClick={navigateBack} className="shrink-0" data-testid="button-drive-back">
+            <Button variant="ghost" size="sm" onClick={navigateBack} className="shrink-0" aria-label="Back to parent folder" data-testid="button-drive-back">
               <ChevronLeft className="h-4 w-4" />
             </Button>
           )}
@@ -242,6 +242,7 @@ export function GoogleDrivePicker({ open, onOpenChange, onFileSelected, accept }
               value={searchQuery}
               onChange={(e) => handleSearch(e.target.value)}
               className="pl-8 h-8 text-sm"
+              aria-label="Search Google Drive"
               data-testid="input-drive-search"
             />
           </div>
@@ -249,26 +250,29 @@ export function GoogleDrivePicker({ open, onOpenChange, onFileSelected, accept }
 
         {folderStack.length > 0 && (
           <div className="flex items-center gap-1 text-xs text-muted-foreground">
-            <span className="cursor-pointer hover:text-foreground" onClick={() => { setFolderStack([]); setFiles([]); setNextPageToken(undefined); fetchFiles(); }}>
+            <button type="button" className="cursor-pointer hover:text-foreground" onClick={() => { setFolderStack([]); setFiles([]); setNextPageToken(undefined); fetchFiles(); }}>
               My Drive
-            </span>
+            </button>
             {folderStack.map((f, i) => (
               <span key={f.id} className="flex items-center gap-1">
                 <span>/</span>
-                <span
-                  className={i === folderStack.length - 1 ? "text-foreground font-medium" : "cursor-pointer hover:text-foreground"}
-                  onClick={() => {
-                    if (i < folderStack.length - 1) {
+                {i === folderStack.length - 1 ? (
+                  <span className="text-foreground font-medium">{f.name}</span>
+                ) : (
+                  <button
+                    type="button"
+                    className="cursor-pointer hover:text-foreground"
+                    onClick={() => {
                       const newStack = folderStack.slice(0, i + 1);
                       setFolderStack(newStack);
                       setFiles([]);
                       setNextPageToken(undefined);
                       fetchFiles(undefined, newStack[newStack.length - 1].id);
-                    }
-                  }}
-                >
-                  {f.name}
-                </span>
+                    }}
+                  >
+                    {f.name}
+                  </button>
+                )}
               </span>
             ))}
           </div>

@@ -9,6 +9,7 @@ export function ThemeToggle() {
       size="icon"
       variant="ghost"
       onClick={toggleTheme}
+      aria-label="Toggle dark mode"
       data-testid="button-theme-toggle"
     >
       {theme === "light" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}

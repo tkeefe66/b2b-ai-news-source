@@ -11,6 +11,7 @@ import { ModelSelector, useSelectedModel, MODEL_DISPLAY } from "@/components/Mod
 import MarkdownRenderer from "@/components/MarkdownRenderer";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { ConfirmDestructive } from "@/components/confirm-destructive";
 import type { ChatMessage, ChatSession } from "@shared/schema";
 
 
@@ -74,6 +75,15 @@ function SessionCard({
     <Card
       className={`overflow-hidden cursor-pointer transition-colors ${isActive ? "border-primary shadow-sm bg-primary/5" : "border-border hover:bg-muted/20"}`}
       onClick={onSelect}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.target !== e.currentTarget) return;
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onSelect();
+        }
+      }}
       data-testid={`card-chat-session-${session.id}`}
     >
       <div className="flex items-center gap-3 p-3">
@@ -94,15 +104,21 @@ function SessionCard({
             )}
           </div>
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-7 w-7 p-0 shrink-0"
-          onClick={(e) => { e.stopPropagation(); onDelete(session.id); }}
-          data-testid={`button-delete-session-${session.id}`}
+        <ConfirmDestructive
+          title={`Delete "${session.title}"?`}
+          description="This permanently deletes the chat session and all of its messages. This can't be undone."
+          onConfirm={() => onDelete(session.id)}
         >
-          <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
-        </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 w-7 p-0 shrink-0"
+            aria-label={`Delete session "${session.title}"`}
+            data-testid={`button-delete-session-${session.id}`}
+          >
+            <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+          </Button>
+        </ConfirmDestructive>
       </div>
     </Card>
   );
@@ -152,6 +168,9 @@ export default function Analyst() {
         setActiveSessionId(null);
         setChatTitle("");
       }
+    },
+    onError: () => {
+      toast({ title: "Couldn't delete session", description: "The server didn't respond. Try again.", variant: "destructive" });
     },
   });
 
@@ -278,6 +297,7 @@ export default function Analyst() {
         queryClient.invalidateQueries({ queryKey: ["/api/chat/sessions"] });
       } catch (err) {
         console.error("Failed to update session title", err);
+        toast({ title: "Couldn't save chat title", description: "The server didn't respond. Try again.", variant: "destructive" });
       }
     }
     startNewChat();
@@ -322,12 +342,14 @@ export default function Analyst() {
                     onKeyDown={(e) => { if (e.key === "Enter") setIsEditingTitle(false); }}
                     className="text-xs bg-transparent border-b border-primary outline-none text-foreground w-full max-w-[200px]"
                     autoFocus
+                    aria-label="Chat title"
                     data-testid="input-chat-title"
                   />
                 ) : (
                   <button
                     className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1 truncate"
                     onClick={() => setIsEditingTitle(true)}
+                    aria-label="Edit chat title"
                     data-testid="button-edit-title"
                   >
                     {chatTitle || "Untitled Chat"}
@@ -361,6 +383,7 @@ export default function Analyst() {
                   onClick={startNewChat}
                   disabled={isStreaming}
                   className="h-7 text-[11px] px-2"
+                  aria-label="New chat"
                   data-testid="button-new-chat"
                 >
                   <Plus className="h-3.5 w-3.5" />
@@ -372,6 +395,7 @@ export default function Analyst() {
               size="sm"
               onClick={() => setShowHistory(!showHistory)}
               className="h-7 text-[11px] px-2"
+              aria-label={showHistory ? "Hide chat history" : "Show chat history"}
               data-testid="button-toggle-history"
             >
               <Clock className="h-3.5 w-3.5 mr-1" />
@@ -395,6 +419,7 @@ export default function Analyst() {
                 variant="ghost"
                 size="sm"
                 onClick={() => setShowHistory(false)}
+                aria-label="Close history"
                 data-testid="button-close-history"
               >
                 <X className="h-4 w-4" />
@@ -498,10 +523,12 @@ export default function Analyst() {
                 <MessageBubble key={msg.id} message={msg} />
               ))}
               {isStreaming && streamingContent && (
-                <MessageBubble
-                  message={{ role: "assistant", content: streamingContent }}
-                  isStreaming
-                />
+                <div aria-live="polite">
+                  <MessageBubble
+                    message={{ role: "assistant", content: streamingContent }}
+                    isStreaming
+                  />
+                </div>
               )}
               <div ref={messagesEndRef} />
             </div>
@@ -522,6 +549,7 @@ export default function Analyst() {
                 className="resize-none min-h-[44px] max-h-[120px] pr-9"
                 rows={1}
                 disabled={isStreaming}
+                aria-label="Chat message"
                 data-testid="input-chat"
               />
               <VoiceInputButton
@@ -535,6 +563,7 @@ export default function Analyst() {
               disabled={!input.trim() || isStreaming}
               size="icon"
               className="shrink-0 h-[44px] w-[44px]"
+              aria-label="Send message"
               data-testid="button-send"
             >
               <Send className="h-4 w-4" />

@@ -98,6 +98,53 @@ export default function MarkdownRenderer({ content, className = "" }: MarkdownRe
       continue;
     }
 
+    // Pipe tables: header row, separator row (|---|---|), then body rows.
+    if (line.trim().startsWith("|") && line.trim().length > 1) {
+      const start = i;
+      const tableLines: string[] = [];
+      while (i < lines.length && lines[i].trim().startsWith("|")) {
+        tableLines.push(lines[i].trim());
+        i++;
+      }
+      const isSeparator = tableLines.length >= 2 && /^\|?[\s:-]+(\|[\s:-]+)+\|?$/.test(tableLines[1]);
+      if (isSeparator) {
+        const parseRow = (row: string) =>
+          row.replace(/^\|/, "").replace(/\|$/, "").split("|").map(c => c.trim());
+        const header = parseRow(tableLines[0]);
+        const rows = tableLines.slice(2).map(parseRow);
+        elements.push(
+          <div key={start} className="my-3 overflow-x-auto rounded-lg border border-border">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-muted/50">
+                  {header.map((h, hi) => (
+                    <th key={hi} className="px-3 py-2 text-left font-semibold text-foreground whitespace-nowrap">{renderInline(h)}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r, ri) => (
+                  <tr key={ri} className="border-b border-border last:border-0">
+                    {header.map((_, ci) => (
+                      <td key={ci} className="px-3 py-2 align-top text-foreground leading-relaxed">{renderInline(r[ci] ?? "")}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+      } else {
+        // Not a real table — render the collected lines as plain paragraphs.
+        tableLines.forEach((tl, ti) => {
+          elements.push(
+            <p key={`${start}-${ti}`} className="text-sm text-foreground leading-relaxed mb-1.5">{renderInline(tl)}</p>
+          );
+        });
+      }
+      continue;
+    }
+
     if (line.startsWith("#### ")) {
       elements.push(
         <h4 key={i} className="text-sm font-semibold text-foreground mt-3 mb-1">{renderInline(line.slice(5))}</h4>
@@ -149,6 +196,19 @@ export default function MarkdownRenderer({ content, className = "" }: MarkdownRe
         <div key={i} className="flex gap-2 ml-1 mb-1.5">
           <span className="text-muted-foreground shrink-0 font-medium text-sm min-w-[1.25rem] text-right">{numberedMatch[1]}.</span>
           <span className="text-sm text-foreground leading-relaxed">{renderInline(numberedMatch[2])}</span>
+        </div>
+      );
+      i++;
+      continue;
+    }
+
+    const indentedNumbered = line.match(/^(\s{2,})(\d+)\.\s+(.+)/);
+    if (indentedNumbered) {
+      const depth = Math.floor(indentedNumbered[1].length / 2);
+      elements.push(
+        <div key={i} className="flex gap-2 mb-1" style={{ marginLeft: `${(depth + 1) * 12}px` }}>
+          <span className="text-muted-foreground shrink-0 font-medium text-sm min-w-[1.25rem] text-right">{indentedNumbered[2]}.</span>
+          <span className="text-sm text-foreground/85 leading-relaxed">{renderInline(indentedNumbered[3])}</span>
         </div>
       );
       i++;

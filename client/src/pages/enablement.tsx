@@ -11,6 +11,7 @@ import { SiGoogleslides } from "react-icons/si";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { ConfirmDestructive } from "@/components/confirm-destructive";
 import type { EnablementContent } from "@shared/schema";
 
 type ContentType = {
@@ -116,7 +117,7 @@ function EnablementPreviewModal({
               )}
             </Button>
           )}
-          <Button variant="ghost" size="sm" onClick={onClose} className="h-7 w-7 p-0" data-testid="button-close-preview">
+          <Button variant="ghost" size="sm" onClick={onClose} className="h-7 w-7 p-0" aria-label="Close preview" data-testid="button-close-preview">
             <X className="h-3.5 w-3.5" />
           </Button>
         </div>
@@ -130,6 +131,7 @@ function EnablementPreviewModal({
           onChange={(e) => onDocumentNameChange(e.target.value)}
           className="flex-1 text-xs bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground"
           placeholder="Enter document name..."
+          aria-label="Document name"
           data-testid="input-document-name"
         />
       </div>
@@ -201,6 +203,7 @@ function EnablementPreviewModal({
                 onClick={(e) => e.stopPropagation()}
                 className="text-xs resize-none mb-2 pr-8"
                 rows={2}
+                aria-label="Refinement feedback"
                 data-testid="input-preview-refine-feedback"
               />
               <VoiceInputButton
@@ -284,6 +287,16 @@ function HistoryCard({
       <div
         className="flex items-start gap-3 p-4 cursor-pointer select-none hover:bg-muted/20 transition-colors"
         onClick={() => setExpanded(!expanded)}
+        role="button"
+        tabIndex={0}
+        aria-expanded={expanded}
+        onKeyDown={(e) => {
+          if (e.target !== e.currentTarget) return;
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setExpanded(!expanded);
+          }
+        }}
         data-testid={`button-expand-history-${item.id}`}
       >
         <div className="flex-1 min-w-0">
@@ -325,15 +338,21 @@ function HistoryCard({
           <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{item.prompt}</p>
         </div>
         <div className="flex items-center gap-1 shrink-0">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 w-7 p-0"
-            onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
-            data-testid={`button-delete-history-${item.id}`}
+          <ConfirmDestructive
+            title={`Delete "${item.title}"?`}
+            description="This permanently deletes this content from your history. Anything already exported to Google Drive is kept. This can't be undone."
+            onConfirm={() => onDelete(item.id)}
           >
-            <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
-          </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 w-7 p-0"
+              aria-label={`Delete content "${item.title}"`}
+              data-testid={`button-delete-history-${item.id}`}
+            >
+              <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+            </Button>
+          </ConfirmDestructive>
           {expanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
         </div>
       </div>
@@ -377,7 +396,7 @@ function ContentCreatedBanner({ label, url, onClose }: { label: string; url: str
           Open in Google Drive
         </a>
       </div>
-      <Button variant="ghost" size="sm" onClick={onClose} className="h-7 w-7 p-0">
+      <Button variant="ghost" size="sm" onClick={onClose} className="h-7 w-7 p-0" aria-label="Dismiss notification">
         <X className="h-3.5 w-3.5" />
       </Button>
     </div>
@@ -421,6 +440,9 @@ export default function Enablement() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/enablement/history"] });
       toast({ title: "Content deleted" });
+    },
+    onError: () => {
+      toast({ title: "Couldn't delete content", description: "The server didn't respond. Try again.", variant: "destructive" });
     },
   });
 
@@ -633,6 +655,7 @@ export default function Enablement() {
         queryClient.invalidateQueries({ queryKey: ["/api/enablement/history"] });
       } catch (saveErr) {
         console.error("Failed to save content to history", saveErr);
+        toast({ title: "Couldn't save to history", description: "The content was generated but not saved. Use Save & Done to retry.", variant: "destructive" });
       }
     } catch (err) {
       setPhase("answering");
@@ -687,6 +710,7 @@ export default function Enablement() {
         queryClient.invalidateQueries({ queryKey: ["/api/enablement/history"] });
       } catch (saveErr) {
         console.error("Failed to save content to history", saveErr);
+        toast({ title: "Couldn't save to history", description: "The content was generated but not saved. Use Save & Done to retry.", variant: "destructive" });
       }
     } catch (err) {
       setConversation([]);
@@ -766,6 +790,7 @@ export default function Enablement() {
         queryClient.invalidateQueries({ queryKey: ["/api/enablement/history"] });
       } catch (err) {
         console.error("Failed to update title", err);
+        toast({ title: "Couldn't update title", description: "The server didn't respond. The content keeps its previous title.", variant: "destructive" });
       }
     } else if (generatedContent) {
       try {
@@ -775,6 +800,7 @@ export default function Enablement() {
         queryClient.invalidateQueries({ queryKey: ["/api/enablement/history"] });
       } catch (err) {
         console.error("Failed to save content", err);
+        toast({ title: "Couldn't save content", description: "The server didn't respond. Try again.", variant: "destructive" });
       }
     }
     reset();
@@ -880,6 +906,7 @@ export default function Enablement() {
                 size="sm"
                 onClick={reset}
                 className="h-7 text-[11px] px-2"
+                aria-label="Start over"
                 data-testid="button-reset"
               >
                 <RotateCcw className="h-3.5 w-3.5" />
@@ -890,6 +917,7 @@ export default function Enablement() {
               size="sm"
               onClick={() => setShowHistory(!showHistory)}
               className="h-7 text-[11px] px-2"
+              aria-label={showHistory ? "Hide content history" : "Show content history"}
               data-testid="button-toggle-history"
             >
               <Clock className="h-3.5 w-3.5 mr-1" />
@@ -913,6 +941,7 @@ export default function Enablement() {
                 variant="ghost"
                 size="sm"
                 onClick={() => setShowHistory(false)}
+                aria-label="Close history"
                 data-testid="button-close-history"
               >
                 <X className="h-4 w-4" />
@@ -1000,7 +1029,7 @@ export default function Enablement() {
         ) : isInQAFlow ? (
           <div className="max-w-3xl mx-auto">
             {(phase === "loading-questions" || phase === "loading-followup") && (
-              <div className="flex items-center gap-2 py-8 justify-center">
+              <div className="flex items-center gap-2 py-8 justify-center" role="status">
                 <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                 <span className="text-xs text-muted-foreground">
                   {phase === "loading-questions" ? "Preparing targeted questions..." : "Reviewing your answers..."}
@@ -1077,6 +1106,7 @@ export default function Enablement() {
                           placeholder="Your thoughts..."
                           className="resize-none text-sm pr-8"
                           rows={2}
+                          aria-label={`Answer to question ${i + 1}`}
                           data-testid={`input-answer-${i}`}
                         />
                         <VoiceInputButton
@@ -1148,7 +1178,7 @@ export default function Enablement() {
             )}
 
             {phase === "generating" && (
-              <div className="flex flex-col items-center gap-3 py-12" data-testid="generating-spinner">
+              <div className="flex flex-col items-center gap-3 py-12" role="status" data-testid="generating-spinner">
                 <Loader2 className="h-6 w-6 animate-spin text-primary" />
                 <span className="text-sm text-muted-foreground">
                   {isRefining ? "Refining your content..." : "Creating your content..."}
@@ -1203,6 +1233,7 @@ export default function Enablement() {
                 placeholder={phase === "done" ? "Start a new request..." : "Describe the enablement material you need..."}
                 className="resize-none min-h-[44px] max-h-[120px] pr-9"
                 rows={1}
+                aria-label="Describe the enablement material you need"
                 data-testid="input-enablement"
               />
               <VoiceInputButton
@@ -1215,6 +1246,7 @@ export default function Enablement() {
               disabled={!input.trim()}
               size="icon"
               className="shrink-0 h-[44px] w-[44px]"
+              aria-label="Send request"
               data-testid="button-generate"
             >
               <Send className="h-4 w-4" />

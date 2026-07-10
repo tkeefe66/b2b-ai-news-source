@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { VoiceInputButton } from "@/components/VoiceInputButton";
 import { ModelSelector, useSelectedModel, MODEL_DISPLAY } from "@/components/ModelSelector";
 import { Textarea } from "@/components/ui/textarea";
+import { ConfirmDestructive } from "@/components/confirm-destructive";
 import {
   Building2,
   Globe,
@@ -303,6 +304,7 @@ function AnalysisQA({ analysisId }: { analysisId: number }) {
             className="resize-none min-h-[40px] max-h-[80px] text-sm pr-8"
             rows={1}
             disabled={isAsking}
+            aria-label="Question about this analysis"
             data-testid={`input-qa-question-${analysisId}`}
           />
           <VoiceInputButton
@@ -316,6 +318,7 @@ function AnalysisQA({ analysisId }: { analysisId: number }) {
           className="shrink-0 h-[40px] w-[40px]"
           onClick={handleAsk}
           disabled={!question.trim() || isAsking}
+          aria-label="Ask question"
           data-testid={`button-qa-ask-${analysisId}`}
         >
           {isAsking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
@@ -371,15 +374,21 @@ function AnalysisCard({ analysis, onDelete }: { analysis: CompanyAnalysis; onDel
             </div>
           </button>
           <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7"
-              onClick={() => onDelete(analysis.id)}
-              data-testid={`button-delete-analysis-${analysis.id}`}
+            <ConfirmDestructive
+              title={`Delete analysis of ${analysis.companyName}?`}
+              description="This permanently deletes the analysis and its Q&A history. This can't be undone."
+              onConfirm={() => onDelete(analysis.id)}
             >
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                aria-label={`Delete analysis of ${analysis.companyName}`}
+                data-testid={`button-delete-analysis-${analysis.id}`}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </ConfirmDestructive>
           </div>
         </div>
       </CardHeader>
@@ -533,6 +542,9 @@ export default function CompanyAnalysisPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/company-analyses"] });
       toast({ title: "Analysis deleted" });
     },
+    onError: () => {
+      toast({ title: "Couldn't delete analysis", description: "The server didn't respond. Try again.", variant: "destructive" });
+    },
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -567,6 +579,7 @@ export default function CompanyAnalysisPage() {
                     placeholder="Enter company website (e.g. salesforce.com)"
                     className="pl-9"
                     disabled={analyzeMutation.isPending}
+                    aria-label="Company website"
                     data-testid="input-company-website"
                   />
                 </div>
@@ -594,7 +607,7 @@ export default function CompanyAnalysisPage() {
               <ModelSelector value={selectedModel} onChange={setSelectedModel} compact data-testid="select-model-pca" />
             </div>
             {analyzeMutation.isPending && progressMessage && (
-              <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
+              <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground" role="status" aria-live="polite">
                 <Sparkles className="h-4 w-4 animate-pulse text-primary" />
                 {progressMessage}
               </div>

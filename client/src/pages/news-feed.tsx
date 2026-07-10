@@ -95,12 +95,13 @@ function ArticleCard({ article, onDismiss }: { article: Article; onDismiss: (id:
         </Card>
       </a>
       <button
-        className="absolute top-2.5 right-2.5 p-1.5 rounded-lg bg-background/90 backdrop-blur-sm border border-border/40 opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-destructive/10 hover:border-destructive/30 hover:text-destructive z-10"
+        className="absolute top-2.5 right-2.5 p-1.5 rounded-lg bg-background/90 backdrop-blur-sm border border-border/40 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100 transition-all duration-200 hover:bg-destructive/10 hover:border-destructive/30 hover:text-destructive z-10"
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
           onDismiss(article.id);
         }}
+        aria-label="Dismiss article"
         title="Not relevant"
         data-testid={`button-dismiss-${article.id}`}
       >
@@ -243,6 +244,9 @@ export default function NewsFeed() {
       queryClient.invalidateQueries({ queryKey: ["/api/articles/filters"] });
       toast({ title: "Data loaded", description: "News sources and articles have been fetched." });
     },
+    onError: () => {
+      toast({ title: "Couldn't load news sources", description: "Seeding failed. Check your connection and try again.", variant: "destructive" });
+    },
   });
 
   const [dismissedIds, setDismissedIds] = useState<Set<number>>(() => {
@@ -378,6 +382,7 @@ export default function NewsFeed() {
             <Input
               type="search"
               placeholder={activeTab === "company" ? "Search company articles..." : "Search articles..."}
+              aria-label={activeTab === "company" ? "Search company articles" : "Search articles"}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9 h-8 text-sm rounded-lg border-border/50 bg-muted/30 focus:bg-background transition-colors"

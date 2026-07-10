@@ -24,6 +24,7 @@ import { Progress } from "@/components/ui/progress";
 import { useState, useMemo, useCallback } from "react";
 import { VoiceInputButton } from "@/components/VoiceInputButton";
 import { GoogleDrivePickerButton } from "@/components/google-drive-picker";
+import { ConfirmDestructive } from "@/components/confirm-destructive";
 
 type NewsCategory = { id: number; name: string; colorBg: string; colorText: string; sortOrder: number };
 
@@ -335,6 +336,7 @@ function NewsAPIStatusCard() {
               size="icon"
               className="h-6 w-6 ml-auto"
               onClick={() => setExpanded(!expanded)}
+              aria-label={expanded ? "Collapse NewsAPI queries" : "Expand NewsAPI queries"}
               data-testid="button-toggle-newsapi"
             >
               {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
@@ -355,6 +357,7 @@ function NewsAPIStatusCard() {
                     value={searchTerm}
                     onChange={e => setSearchTerm(e.target.value)}
                     placeholder="Search queries..."
+                    aria-label="Search NewsAPI queries"
                     className="text-xs h-7 pl-7"
                     data-testid="input-newsapi-search"
                   />
@@ -377,6 +380,7 @@ function NewsAPIStatusCard() {
                     value={newQuery}
                     onChange={e => setNewQuery(e.target.value)}
                     placeholder="Search query (e.g. account-based marketing)"
+                    aria-label="New NewsAPI query"
                     className="text-xs h-7"
                     data-testid="input-newsapi-new-query"
                     onKeyDown={e => {
@@ -441,15 +445,22 @@ function NewsAPIStatusCard() {
                             className="scale-75"
                             data-testid={`switch-newsapi-${q.id}`}
                           />
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity text-destructive"
-                            onClick={() => deleteMutation.mutate(q.id)}
-                            data-testid={`button-delete-newsapi-${q.id}`}
+                          <ConfirmDestructive
+                            title={`Remove query "${q.query}"?`}
+                            description="This NewsAPI topic query is permanently removed and will stop fetching new articles. This can't be undone."
+                            confirmLabel="Remove"
+                            onConfirm={() => deleteMutation.mutate(q.id)}
                           >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-5 w-5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100 transition-opacity text-destructive"
+                              aria-label={`Delete query ${q.query}`}
+                              data-testid={`button-delete-newsapi-${q.id}`}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </ConfirmDestructive>
                         </div>
                       ))}
                     </div>
@@ -780,6 +791,7 @@ function TopicTracker({ sources }: { sources: Source[] }) {
               size="icon"
               className="h-6 w-6 ml-auto"
               onClick={() => setShowCatManager(!showCatManager)}
+              aria-label="Manage categories"
               data-testid="button-manage-categories"
             >
               <Settings className="h-3.5 w-3.5" />
@@ -800,6 +812,7 @@ function TopicTracker({ sources }: { sources: Source[] }) {
                   value={newCatName}
                   onChange={e => setNewCatName(e.target.value)}
                   placeholder="New category name..."
+                  aria-label="New category name"
                   className="text-xs h-7"
                   data-testid="input-new-category"
                   onKeyDown={e => {
@@ -827,6 +840,7 @@ function TopicTracker({ sources }: { sources: Source[] }) {
                           value={editCatName}
                           onChange={e => setEditCatName(e.target.value)}
                           className="text-xs h-6 flex-1"
+                          aria-label="Rename category"
                           data-testid={`input-rename-category-${cat.id}`}
                           autoFocus
                           onKeyDown={e => {
@@ -867,17 +881,22 @@ function TopicTracker({ sources }: { sources: Source[] }) {
                           <Edit className="h-3 w-3 mr-1" />
                           Edit
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-6 px-2 text-xs text-muted-foreground hover:text-destructive"
-                          onClick={() => deleteCatMutation.mutate(cat.id)}
-                          disabled={deleteCatMutation.isPending}
-                          data-testid={`button-delete-category-${cat.id}`}
+                        <ConfirmDestructive
+                          title={`Delete category "${cat.name}"?`}
+                          description="The category is permanently removed from topic tracking. Categories that still contain sources can't be deleted. This can't be undone."
+                          onConfirm={() => deleteCatMutation.mutate(cat.id)}
                         >
-                          <Trash2 className="h-3 w-3 mr-1" />
-                          Delete
-                        </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 px-2 text-xs text-muted-foreground hover:text-destructive"
+                            disabled={deleteCatMutation.isPending}
+                            data-testid={`button-delete-category-${cat.id}`}
+                          >
+                            <Trash2 className="h-3 w-3 mr-1" />
+                            Delete
+                          </Button>
+                        </ConfirmDestructive>
                       </>
                     )}
                   </div>
@@ -891,6 +910,7 @@ function TopicTracker({ sources }: { sources: Source[] }) {
               value={topic}
               onChange={e => setTopic(e.target.value)}
               placeholder="e.g. Demandbase ABM, HubSpot CRM..."
+              aria-label="Topic to track"
               className="text-sm"
               data-testid="input-topic"
               onKeyDown={e => {
@@ -902,6 +922,7 @@ function TopicTracker({ sources }: { sources: Source[] }) {
               size="sm"
               onClick={() => addTopicMutation.mutate()}
               disabled={!topic.trim() || addTopicMutation.isPending}
+              aria-label="Add topic"
               data-testid="button-add-topic"
             >
               {addTopicMutation.isPending ? (
@@ -1002,12 +1023,25 @@ function TopicTracker({ sources }: { sources: Source[] }) {
                       {catSources.map(source => (
                         <div
                           key={source.id}
+                          role="button"
+                          tabIndex={0}
                           onClick={(e) => {
                             e.stopPropagation();
                             if (isDropTarget && selectedTopicId !== null && selectedTopicId !== source.id) {
                               handleCategoryClick(category);
                             } else {
                               handleTopicClick(source.id);
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              if (isDropTarget && selectedTopicId !== null && selectedTopicId !== source.id) {
+                                handleCategoryClick(category);
+                              } else {
+                                handleTopicClick(source.id);
+                              }
                             }
                           }}
                           className={`group flex items-center gap-0.5 rounded-md pl-1 pr-2 py-1 text-xs cursor-pointer select-none transition-all ${
@@ -1022,16 +1056,23 @@ function TopicTracker({ sources }: { sources: Source[] }) {
                             {extractTopic(source)}
                           </span>
                           {!isSelecting && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity"
-                              onClick={(e) => { e.stopPropagation(); removeMutation.mutate(source.id); }}
-                              disabled={removeMutation.isPending}
-                              data-testid={`button-remove-topic-${source.id}`}
+                            <ConfirmDestructive
+                              title={`Stop tracking "${extractTopic(source)}"?`}
+                              description="The Google News source for this topic is permanently deleted and no new articles will be fetched for it. This can't be undone."
+                              confirmLabel="Remove"
+                              onConfirm={() => removeMutation.mutate(source.id)}
                             >
-                              <X className="h-2.5 w-2.5" />
-                            </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-3.5 w-3.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
+                                disabled={removeMutation.isPending}
+                                aria-label={`Remove topic ${extractTopic(source)}`}
+                                data-testid={`button-remove-topic-${source.id}`}
+                              >
+                                <X className="h-2.5 w-2.5" />
+                              </Button>
+                            </ConfirmDestructive>
                           )}
                         </div>
                       ))}
@@ -1114,7 +1155,16 @@ function CompetitorManager() {
         <div className="flex-1 min-w-0">
           <div
             className="flex items-center gap-2 mb-1 cursor-pointer select-none"
+            role="button"
+            tabIndex={0}
+            aria-expanded={expanded}
             onClick={() => setExpanded(!expanded)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                setExpanded(!expanded);
+              }
+            }}
           >
             <h3 className="text-sm font-semibold">Competitor Database</h3>
             <Badge variant="secondary" className="text-[10px] bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">
@@ -1135,6 +1185,7 @@ function CompetitorManager() {
                   value={name}
                   onChange={e => setName(e.target.value)}
                   placeholder="Competitor name..."
+                  aria-label="Competitor name"
                   className="text-sm flex-1"
                   data-testid="input-competitor-name"
                   onKeyDown={e => {
@@ -1146,6 +1197,7 @@ function CompetitorManager() {
                   value={domain}
                   onChange={e => setDomain(e.target.value)}
                   placeholder="domain.com (optional)"
+                  aria-label="Competitor domain"
                   className="text-sm w-36"
                   data-testid="input-competitor-domain"
                   onKeyDown={e => {
@@ -1187,16 +1239,23 @@ function CompetitorManager() {
                     >
                       <Shield className="h-3 w-3 text-red-500 dark:text-red-400 shrink-0" />
                       <span className="text-foreground/80">{comp.name}</span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-                        onClick={() => removeMutation.mutate(comp.id)}
-                        disabled={removeMutation.isPending}
-                        data-testid={`button-remove-competitor-${comp.id}`}
+                      <ConfirmDestructive
+                        title={`Remove competitor "${comp.name}"?`}
+                        description="This competitor is permanently removed from the database, and Public Company Analysis will stop flagging it. This can't be undone."
+                        confirmLabel="Remove"
+                        onConfirm={() => removeMutation.mutate(comp.id)}
                       >
-                        <X className="h-3 w-3" />
-                      </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-4 w-4 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                          disabled={removeMutation.isPending}
+                          aria-label={`Remove competitor ${comp.name}`}
+                          data-testid={`button-remove-competitor-${comp.id}`}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </ConfirmDestructive>
                     </div>
                   ))}
                 </div>
@@ -1275,6 +1334,7 @@ function CompanyTracker({ sources }: { sources: Source[] }) {
               value={companyName}
               onChange={e => setCompanyName(e.target.value)}
               placeholder="e.g. Salesforce, HubSpot, Snowflake..."
+              aria-label="Company name to track"
               className="text-sm"
               data-testid="input-company-name"
               onKeyDown={e => {
@@ -1309,16 +1369,23 @@ function CompanyTracker({ sources }: { sources: Source[] }) {
                 >
                   <Building2 className="h-3 w-3 text-cyan-600 dark:text-cyan-400 shrink-0" />
                   <span className="text-foreground/80">{source.name.replace("Company - ", "")}</span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-                    onClick={() => removeCompanyMutation.mutate(source.id)}
-                    disabled={removeCompanyMutation.isPending}
-                    data-testid={`button-remove-company-${source.id}`}
+                  <ConfirmDestructive
+                    title={`Stop tracking "${source.name.replace("Company - ", "")}"?`}
+                    description="The company's news feed source is permanently deleted and new articles for it will stop appearing. This can't be undone."
+                    confirmLabel="Remove"
+                    onConfirm={() => removeCompanyMutation.mutate(source.id)}
                   >
-                    <X className="h-3 w-3" />
-                  </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-4 w-4 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                      disabled={removeCompanyMutation.isPending}
+                      aria-label={`Stop tracking ${source.name.replace("Company - ", "")}`}
+                      data-testid={`button-remove-company-${source.id}`}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </ConfirmDestructive>
                 </div>
               ))}
             </div>
@@ -1405,6 +1472,7 @@ function PendingEntryCard({ entry, onUpdate, onDelete, onApprove }: {
                 value={editTitle}
                 onChange={(e) => setEditTitle(e.target.value)}
                 className="h-8 text-sm font-medium"
+                aria-label="Entry title"
                 data-testid={`input-title-${entry.id}`}
               />
               <VoiceInputButton onTranscript={(text) => setEditTitle((prev) => prev ? prev + " " + text : text)} />
@@ -1414,6 +1482,7 @@ function PendingEntryCard({ entry, onUpdate, onDelete, onApprove }: {
                 value={editContent}
                 onChange={(e) => setEditContent(e.target.value)}
                 className="text-xs min-h-[120px]"
+                aria-label="Entry content"
                 data-testid={`textarea-content-${entry.id}`}
               />
               <div className="absolute top-1.5 right-1.5">
@@ -1450,15 +1519,21 @@ function PendingEntryCard({ entry, onUpdate, onDelete, onApprove }: {
               </button>
             </div>
             <div className="flex items-center gap-0.5 shrink-0">
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setIsEditing(true)} data-testid={`button-edit-${entry.id}`}>
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setIsEditing(true)} aria-label="Edit entry" data-testid={`button-edit-${entry.id}`}>
                 <Pencil className="h-3.5 w-3.5" />
               </Button>
-              <Button variant="ghost" size="icon" className="h-7 w-7 text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-900/20" onClick={() => onApprove(entry.id)} data-testid={`button-approve-${entry.id}`}>
+              <Button variant="ghost" size="icon" className="h-7 w-7 text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-900/20" onClick={() => onApprove(entry.id)} aria-label="Approve entry" data-testid={`button-approve-${entry.id}`}>
                 <Check className="h-3.5 w-3.5" />
               </Button>
-              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => onDelete(entry.id)} data-testid={`button-delete-${entry.id}`}>
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
+              <ConfirmDestructive
+                title={`Delete entry "${entry.title}"?`}
+                description="This extracted entry is discarded and won't be added to the knowledge base. This can't be undone."
+                onConfirm={() => onDelete(entry.id)}
+              >
+                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" aria-label="Delete entry" data-testid={`button-delete-${entry.id}`}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </ConfirmDestructive>
             </div>
           </>
         )}
@@ -1701,6 +1776,9 @@ function KnowledgeBaseSection() {
       queryClient.invalidateQueries({ queryKey: ["/api/knowledge/conflicts"] });
       toast({ title: "Entry deleted" });
       setDeleteId(null);
+    },
+    onError: () => {
+      toast({ title: "Couldn't delete entry", description: "The delete failed. Refresh and try again.", variant: "destructive" });
     },
   });
 
@@ -1996,7 +2074,16 @@ function KnowledgeBaseSection() {
       <Card className="p-4 border-card-border" data-testid="card-knowledge-base">
         <div
           className="flex items-center gap-3 cursor-pointer select-none"
+          role="button"
+          tabIndex={0}
+          aria-expanded={expanded}
           onClick={() => setExpanded(!expanded)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setExpanded(!expanded);
+            }
+          }}
           data-testid="button-toggle-knowledge-base"
         >
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-emerald-100 dark:bg-emerald-900/30">
@@ -2035,12 +2122,15 @@ function KnowledgeBaseSection() {
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                   placeholder="Search knowledge entries..."
+                  aria-label="Search knowledge entries"
                   className="text-xs pl-8"
                   data-testid="input-knowledge-search"
                 />
                 {searchQuery && (
                   <button
+                    type="button"
                     className="absolute right-2 top-1/2 -translate-y-1/2"
+                    aria-label="Clear search"
                     onClick={(e) => { e.stopPropagation(); setSearchQuery(""); }}
                   >
                     <X className="h-3 w-3 text-muted-foreground" />
@@ -2250,20 +2340,25 @@ function KnowledgeBaseSection() {
                               </div>
                               <div className="flex items-center gap-2 mt-2 flex-wrap">
                                 {suggestion.type === "delete" ? (
-                                  <Button
-                                    size="sm"
-                                    variant="destructive"
-                                    className="h-7 text-xs gap-1"
-                                    disabled={isDeleting}
-                                    onClick={() => {
+                                  <ConfirmDestructive
+                                    title={`Delete ${suggestion.entryIds.length} flagged ${suggestion.entryIds.length === 1 ? "entry" : "entries"}?`}
+                                    description="The knowledge entries named in this suggestion are permanently removed from the knowledge base. This can't be undone."
+                                    onConfirm={() => {
                                       setApplyingIdx(idx);
                                       deleteSuggestionMutation.mutate(suggestion);
                                     }}
-                                    data-testid={`button-apply-suggestion-${idx}`}
                                   >
-                                    {isDeleting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
-                                    {isDeleting ? "Deleting..." : "Delete"}
-                                  </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="destructive"
+                                      className="h-7 text-xs gap-1"
+                                      disabled={isDeleting}
+                                      data-testid={`button-apply-suggestion-${idx}`}
+                                    >
+                                      {isDeleting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                                      {isDeleting ? "Deleting..." : "Delete"}
+                                    </Button>
+                                  </ConfirmDestructive>
                                 ) : (
                                   <Button
                                     size="sm"
@@ -2390,6 +2485,7 @@ function KnowledgeBaseSection() {
                                     onChange={(e) => setTeachReason(e.target.value)}
                                     rows={3}
                                     className="text-xs resize-y"
+                                    aria-label="Your reasoning"
                                     data-testid={`textarea-teach-reason-${idx}`}
                                   />
                                   <div className="flex justify-end">
@@ -2438,6 +2534,7 @@ function KnowledgeBaseSection() {
                                     <div className="flex gap-2">
                                       <Textarea
                                         placeholder="Type your response..."
+                                        aria-label="Follow-up response"
                                         value={teachFollowUp}
                                         onChange={(e) => setTeachFollowUp(e.target.value)}
                                         rows={2}
@@ -2553,7 +2650,9 @@ function KnowledgeBaseSection() {
                       >
                         <div className="flex items-start gap-2">
                           <button
+                            type="button"
                             className="mt-0.5 shrink-0"
+                            aria-label={expandedEntries.has(entry.id) ? "Collapse entry" : "Expand entry"}
                             onClick={() => toggleEntry(entry.id)}
                             data-testid={`button-expand-entry-${entry.id}`}
                           >
@@ -2601,6 +2700,7 @@ function KnowledgeBaseSection() {
                             size="icon"
                             variant="ghost"
                             className="shrink-0 text-muted-foreground hover:text-destructive"
+                            aria-label="Delete knowledge entry"
                             onClick={(e) => { e.stopPropagation(); setDeleteId(entry.id); }}
                             data-testid={`button-delete-entry-${entry.id}`}
                           >
@@ -2965,7 +3065,15 @@ function UploadDeckCard() {
             <div className="space-y-4 py-2">
               <div
                 className="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer hover:border-primary/50 hover:bg-muted/30 transition-colors"
+                role="button"
+                tabIndex={0}
                 onClick={() => document.getElementById("file-upload-input")?.click()}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    document.getElementById("file-upload-input")?.click();
+                  }
+                }}
                 onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
                 onDrop={(e) => {
                   e.preventDefault();
@@ -2986,6 +3094,7 @@ function UploadDeckCard() {
                       variant="ghost"
                       size="icon"
                       className="h-6 w-6 ml-2"
+                      aria-label="Clear selected file"
                       onClick={(e) => { e.stopPropagation(); setUploadFile(null); }}
                     >
                       <X className="h-4 w-4" />

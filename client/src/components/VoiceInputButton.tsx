@@ -83,6 +83,7 @@ export function VoiceInputButton({ onTranscript, disabled, className }: VoiceInp
       onClick={handleClick}
       disabled={(disabled && !isRecording) || voiceState === "transcribing"}
       className={`h-7 w-7 shrink-0 ${isRecording ? "text-red-500 hover:text-red-600 animate-pulse" : "text-muted-foreground hover:text-foreground"} ${className || ""}`}
+      aria-label={isRecording ? "Stop recording" : "Start voice input"}
       data-testid="button-voice-input"
       title={voiceState === "idle" ? "Record voice input" : isRecording ? "Stop recording" : "Processing..."}
     >

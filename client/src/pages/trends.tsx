@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { VoiceInputButton } from "@/components/VoiceInputButton";
+import { ConfirmDestructive } from "@/components/confirm-destructive";
 import {
   TrendingUp, TrendingDown, RefreshCw, Clock, Zap, BarChart3,
   Rocket, ArrowUpRight, ArrowDownRight, Minus, Building2, Sparkles,
@@ -215,7 +216,7 @@ function TrendLinkedInModal({ posts, onClose, onRefine, isRefining }: {
                 <span className="ml-1 text-xs">{copiedIndex === idx ? "Copied!" : "Copy"}</span>
               </Button>
               {idx === 0 && (
-                <Button variant="ghost" size="sm" onClick={onClose} className="h-7 w-7 p-0" data-testid="button-close-trend-li">
+                <Button variant="ghost" size="sm" onClick={onClose} className="h-7 w-7 p-0" aria-label="Close LinkedIn posts" data-testid="button-close-trend-li">
                   <X className="h-3.5 w-3.5" />
                 </Button>
               )}
@@ -236,7 +237,7 @@ function TrendLinkedInModal({ posts, onClose, onRefine, isRefining }: {
         <div className="border border-blue-200 dark:border-blue-800 rounded-lg bg-blue-50/50 dark:bg-blue-950/20 p-3" data-testid="trend-li-refine-panel">
           <p className="text-xs font-medium text-blue-700 dark:text-blue-400 mb-2">What would you like to change?</p>
           <div className="relative">
-            <Textarea placeholder="e.g., Make it more conversational, add a stronger CTA..." value={refineFeedback} onChange={(e) => setRefineFeedback(e.target.value)} className="text-xs resize-none mb-2 pr-8" rows={2} data-testid="input-trend-li-refine" />
+            <Textarea placeholder="e.g., Make it more conversational, add a stronger CTA..." aria-label="Refinement feedback" value={refineFeedback} onChange={(e) => setRefineFeedback(e.target.value)} className="text-xs resize-none mb-2 pr-8" rows={2} data-testid="input-trend-li-refine" />
             <VoiceInputButton onTranscript={(text) => setRefineFeedback(prev => prev ? prev + " " + text : text)} className="absolute top-1 right-1" />
           </div>
           <div className="flex gap-2 justify-end">
@@ -283,7 +284,7 @@ function TrendContentPreviewModal({ preview, onClose, onRefine, onSave, isRefini
           <Button size="sm" onClick={onSave} disabled={isSaving || isRefining} className="h-7 text-xs" data-testid="button-trend-save-drive">
             {isSaving ? <><Loader2 className="h-3 w-3 mr-1 animate-spin" />Saving...</> : <><Save className="h-3 w-3 mr-1" />Save to Google Drive</>}
           </Button>
-          <Button variant="ghost" size="sm" onClick={onClose} className="h-7 w-7 p-0" data-testid="button-close-trend-preview"><X className="h-3.5 w-3.5" /></Button>
+          <Button variant="ghost" size="sm" onClick={onClose} className="h-7 w-7 p-0" aria-label="Close preview" data-testid="button-close-trend-preview"><X className="h-3.5 w-3.5" /></Button>
         </div>
       </div>
 
@@ -325,7 +326,7 @@ function TrendContentPreviewModal({ preview, onClose, onRefine, onSave, isRefini
           <div className="space-y-2">
             <p className={`text-xs font-medium ${colors.text}`}>What would you like to change?</p>
             <div className="relative">
-              <Textarea placeholder="e.g., Add more data points, make it shorter..." value={refineFeedback} onChange={(e) => setRefineFeedback(e.target.value)} className="text-xs resize-none pr-8" rows={2} data-testid="input-trend-preview-refine" />
+              <Textarea placeholder="e.g., Add more data points, make it shorter..." aria-label="Refinement feedback" value={refineFeedback} onChange={(e) => setRefineFeedback(e.target.value)} className="text-xs resize-none pr-8" rows={2} data-testid="input-trend-preview-refine" />
               <VoiceInputButton onTranscript={(text) => setRefineFeedback(prev => prev ? prev + " " + text : text)} className="absolute top-1 right-1" />
             </div>
             <div className="flex gap-2 justify-end">
@@ -542,7 +543,7 @@ function TrendContentGenerator({ name, description, category, model, idSuffix }:
                           </div>
                         </div>
                         <div className="relative">
-                          <Textarea placeholder="Your thoughts..." value={contentAnswers[q.id] || ""} onChange={(e) => setContentAnswers(prev => ({ ...prev, [q.id]: e.target.value }))} rows={2} className="resize-none text-xs pr-8" data-testid={`input-trend-answer-${qi}`} />
+                          <Textarea placeholder="Your thoughts..." aria-label={`Answer to question ${qi + 1}`} value={contentAnswers[q.id] || ""} onChange={(e) => setContentAnswers(prev => ({ ...prev, [q.id]: e.target.value }))} rows={2} className="resize-none text-xs pr-8" data-testid={`input-trend-answer-${qi}`} />
                           <VoiceInputButton onTranscript={(text) => setContentAnswers(prev => ({ ...prev, [q.id]: (prev[q.id] || "") ? prev[q.id] + " " + text : text }))} className="absolute top-1 right-1" />
                         </div>
                       </div>
@@ -568,12 +569,12 @@ function TrendContentGenerator({ name, description, category, model, idSuffix }:
                     Name your {creationMode === "blog" ? "blog post" : creationMode === "webinar" ? "webinar" : "presentation"}
                   </p>
                   <div className="flex items-center gap-1">
-                    <Input type="text" placeholder="Document name in Google Drive" value={documentName} onChange={(e) => setDocumentName(e.target.value)} className="text-xs h-8 flex-1" data-testid="input-trend-doc-name" />
+                    <Input type="text" placeholder="Document name in Google Drive" aria-label="Document name" value={documentName} onChange={(e) => setDocumentName(e.target.value)} className="text-xs h-8 flex-1" data-testid="input-trend-doc-name" />
                     <VoiceInputButton onTranscript={(text) => setDocumentName(prev => prev ? prev + " " + text : text)} />
                   </div>
                   {creationMode === "presentation" && (
                     <div className="flex items-center gap-1">
-                      <Input type="text" placeholder="Target audience, e.g., CMOs at B2B SaaS companies" value={presentationAudience} onChange={(e) => setPresentationAudience(e.target.value)} className="text-xs h-8 flex-1" data-testid="input-trend-pres-audience" />
+                      <Input type="text" placeholder="Target audience, e.g., CMOs at B2B SaaS companies" aria-label="Target audience" value={presentationAudience} onChange={(e) => setPresentationAudience(e.target.value)} className="text-xs h-8 flex-1" data-testid="input-trend-pres-audience" />
                       <VoiceInputButton onTranscript={(text) => setPresentationAudience(prev => prev ? prev + " " + text : text)} />
                     </div>
                   )}
@@ -793,6 +794,7 @@ function TrendCard({ trend, onDrillDown, isWatched, onWatch, model }: {
               size="sm"
               className={`px-1.5 ${isWatched ? "text-amber-500" : "text-muted-foreground"}`}
               onClick={() => onWatch(trend)}
+              aria-label={isWatched ? "Remove trend from watchlist" : "Add trend to watchlist"}
               data-testid={`button-watch-trend-${trend.name.slice(0, 20)}`}
             >
               {isWatched ? <BookmarkCheck className="h-3.5 w-3.5" /> : <Bookmark className="h-3.5 w-3.5" />}
@@ -913,7 +915,7 @@ function ArticleDrilldownDialog({
                   </div>
                   {article.link && (
                     <a href={article.link} target="_blank" rel="noopener noreferrer" data-testid={`link-article-${article.id}`}>
-                      <Button variant="ghost" size="icon" className="h-7 w-7">
+                      <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="Open article in new tab">
                         <ExternalLink className="h-3.5 w-3.5" />
                       </Button>
                     </a>
@@ -1057,7 +1059,16 @@ function CompetitiveIntelChart({
             key={comp}
             variant={active.includes(comp) ? "default" : "secondary"}
             className="cursor-pointer"
+            role="button"
+            tabIndex={0}
+            aria-pressed={active.includes(comp)}
             onClick={() => onToggleCompetitor(comp)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onToggleCompetitor(comp);
+              }
+            }}
             data-testid={`badge-competitor-${comp}`}
           >
             {comp}
@@ -1297,6 +1308,7 @@ function SaveViewDialog({
         <div className="space-y-3">
           <Input
             placeholder="View name..."
+            aria-label="View name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             data-testid="input-view-name"
@@ -1371,18 +1383,25 @@ function OldTrendsSection({
                 </h3>
               </div>
               <div className="flex items-center gap-1 shrink-0">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => onDelete(trend.id)}
-                  data-testid={`button-delete-trend-${trend.id}`}
+                <ConfirmDestructive
+                  title={`Delete "${trend.title}"?`}
+                  description="This AI brief report is permanently deleted. This can't be undone."
+                  onConfirm={() => onDelete(trend.id)}
                 >
-                  <Trash2 className="h-4 w-4 text-muted-foreground" />
-                </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Delete report"
+                    data-testid={`button-delete-trend-${trend.id}`}
+                  >
+                    <Trash2 className="h-4 w-4 text-muted-foreground" />
+                  </Button>
+                </ConfirmDestructive>
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={() => setExpandedId(expanded ? null : trend.id)}
+                  aria-label={expanded ? "Collapse report" : "Expand report"}
                   data-testid={`button-toggle-trend-${trend.id}`}
                 >
                   {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
@@ -1489,19 +1508,27 @@ function WatchlistItemCard({ item, onRemove, onUpdate }: {
             size="icon"
             className="h-7 w-7"
             onClick={() => setExpanded(!expanded)}
+            aria-label={expanded ? "Collapse watched trend" : "Expand watched trend"}
             data-testid={`button-expand-watchlist-${item.id}`}
           >
             {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
           </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 text-muted-foreground hover:text-destructive"
-            onClick={() => onRemove(item.id)}
-            data-testid={`button-remove-watchlist-${item.id}`}
+          <ConfirmDestructive
+            title={`Stop watching "${item.trendName}"?`}
+            description="The trend is removed from your watchlist along with your notes and its tracked history view. This can't be undone."
+            confirmLabel="Remove"
+            onConfirm={() => onRemove(item.id)}
           >
-            <X className="h-4 w-4" />
-          </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-muted-foreground hover:text-destructive"
+              aria-label="Remove from watchlist"
+              data-testid={`button-remove-watchlist-${item.id}`}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </ConfirmDestructive>
         </div>
       </div>
 
@@ -1538,6 +1565,7 @@ function WatchlistItemCard({ item, onRemove, onUpdate }: {
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Add notes about why you're tracking this trend..."
+                  aria-label="Watchlist notes"
                   data-testid={`input-notes-${item.id}`}
                 />
                 <Button
@@ -1679,6 +1707,7 @@ export default function Trends() {
   const [dbDateRange, setDbDateRange] = useState("30");
   const [dbCustomDateRange, setDbCustomDateRange] = useState<{ from?: Date; to?: Date } | undefined>();
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [activeViewId, setActiveViewId] = useState<number | null>(null);
   const [snapshotDays, setSnapshotDays] = useState("30");
   const [trendsExpanded, setTrendsExpanded] = useState(true);
   const [signalsExpanded, setSignalsExpanded] = useState(true);
@@ -1759,6 +1788,9 @@ export default function Trends() {
       queryClient.invalidateQueries({ queryKey: ["/api/trends/watchlist"] });
       toast({ title: "Removed from watchlist" });
     },
+    onError: () => {
+      toast({ title: "Couldn't remove from watchlist", description: "The removal failed. Try again.", variant: "destructive" });
+    },
   });
 
   const updateWatchlistMutation = useMutation({
@@ -1768,6 +1800,9 @@ export default function Trends() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/trends/watchlist"] });
+    },
+    onError: () => {
+      toast({ title: "Couldn't update watchlist item", description: "The update failed. Try again.", variant: "destructive" });
     },
   });
 
@@ -1896,10 +1931,15 @@ export default function Trends() {
   const deleteViewMutation = useMutation({
     mutationFn: async (id: number) => {
       await apiRequest("DELETE", `/api/dashboard-views/${id}`);
+      return id;
     },
-    onSuccess: () => {
+    onSuccess: (id: number) => {
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard-views"] });
+      setActiveViewId(prev => (prev === id ? null : prev));
       toast({ title: "View deleted" });
+    },
+    onError: () => {
+      toast({ title: "Couldn't delete view", description: "The delete failed. Try again.", variant: "destructive" });
     },
   });
 
@@ -1909,6 +1949,7 @@ export default function Trends() {
       if (config.dateRange) setDateRange(config.dateRange);
       if (config.category) setCategory(config.category);
       if (config.selectedCompetitors) setSelectedCompetitors(config.selectedCompetitors);
+      setActiveViewId(view.id);
       toast({ title: `Loaded "${view.name}"` });
     } catch {
       toast({ title: "Failed to load view config", variant: "destructive" });
@@ -2050,6 +2091,7 @@ export default function Trends() {
                       variant="ghost"
                       size="icon"
                       onClick={() => setTrendsExpanded(prev => !prev)}
+                      aria-label={trendsExpanded ? "Collapse market trends" : "Expand market trends"}
                       data-testid="button-collapse-trends"
                     >
                       {trendsExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
@@ -2090,15 +2132,21 @@ export default function Trends() {
                           </SelectContent>
                         </Select>
                       )}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7"
-                        onClick={() => deleteSnapshotMutation.mutate(activeSnapshot.id)}
-                        data-testid="button-delete-snapshot"
+                      <ConfirmDestructive
+                        title={`Delete snapshot from ${formatTimestamp(activeSnapshot.createdAt)}?`}
+                        description="This trend snapshot — its trends, emerging signals, and company sentiment — is permanently deleted, and watched trends lose this point in their history. This can't be undone."
+                        onConfirm={() => deleteSnapshotMutation.mutate(activeSnapshot.id)}
                       >
-                        <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
-                      </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          aria-label="Delete snapshot"
+                          data-testid="button-delete-snapshot"
+                        >
+                          <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+                        </Button>
+                      </ConfirmDestructive>
                     </div>
                   )}
                 </div>
@@ -2125,6 +2173,7 @@ export default function Trends() {
                         variant="ghost"
                         size="icon"
                         onClick={() => setSignalsExpanded(prev => !prev)}
+                        aria-label={signalsExpanded ? "Collapse emerging signals" : "Expand emerging signals"}
                         data-testid="button-collapse-signals"
                       >
                         {signalsExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
@@ -2234,7 +2283,7 @@ export default function Trends() {
 
                   {views.length > 0 && (
                     <Select
-                      value=""
+                      value={activeViewId !== null ? activeViewId.toString() : ""}
                       onValueChange={(val) => {
                         const view = views.find((v) => v.id.toString() === val);
                         if (view) loadView(view);
@@ -2264,26 +2313,30 @@ export default function Trends() {
                     Save
                   </Button>
 
-                  {views.length > 0 && (
-                    <Select
-                      value=""
-                      onValueChange={(val) => {
-                        deleteViewMutation.mutate(parseInt(val));
-                      }}
-                    >
-                      <SelectTrigger className="w-32" data-testid="select-delete-view">
-                        <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-                        <span className="text-xs">Delete</span>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {views.map((view) => (
-                          <SelectItem key={view.id} value={view.id.toString()}>
-                            {view.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
+                  {views.length > 0 && (() => {
+                    const activeView = views.find((v) => v.id === activeViewId);
+                    return (
+                      <ConfirmDestructive
+                        title={`Delete view "${activeView?.name ?? ""}"?`}
+                        description="This saved dashboard view and its filter configuration are permanently deleted. This can't be undone."
+                        onConfirm={() => {
+                          if (activeView) deleteViewMutation.mutate(activeView.id);
+                        }}
+                      >
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                          disabled={!activeView || deleteViewMutation.isPending}
+                          aria-label="Delete current view"
+                          title={activeView ? `Delete view "${activeView.name}"` : "Select a saved view to delete it"}
+                          data-testid="button-delete-view"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </ConfirmDestructive>
+                    );
+                  })()}
                 </div>
               </div>
               {competitiveQuery.isLoading ? (

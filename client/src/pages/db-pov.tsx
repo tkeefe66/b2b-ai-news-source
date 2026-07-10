@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { VoiceInputButton } from "@/components/VoiceInputButton";
+import { ConfirmDestructive } from "@/components/confirm-destructive";
 import {
   Dialog,
   DialogContent,
@@ -152,6 +153,9 @@ function SourcesTab() {
       setDeleteSourceTarget(null);
       toast({ title: `Removed source and ${data.deletedCount} entries` });
     },
+    onError: () => {
+      toast({ title: "Couldn't remove source", description: "The server didn't respond. Try again.", variant: "destructive" });
+    },
   });
 
   const fetchUrlMutation = useMutation({
@@ -188,6 +192,9 @@ function SourcesTab() {
         setUrlPhase("review");
       }
     },
+    onError: () => {
+      toast({ title: "Couldn't resolve duplicates", description: "The server didn't respond. Try again.", variant: "destructive" });
+    },
   });
 
   const approvePendingMutation = useMutation({
@@ -200,11 +207,17 @@ function SourcesTab() {
       queryClient.invalidateQueries({ queryKey: ["/api/knowledge"] });
       queryClient.invalidateQueries({ queryKey: ["/api/knowledge/sources"] });
     },
+    onError: () => {
+      toast({ title: "Couldn't approve entry", description: "The server didn't respond. Try again.", variant: "destructive" });
+    },
   });
 
   const deletePendingMutation = useMutation({
     mutationFn: async (id: number) => {
       await apiRequest("DELETE", `/api/knowledge/pending/${id}`);
+    },
+    onError: () => {
+      toast({ title: "Couldn't discard entry", description: "The server didn't respond. Try again.", variant: "destructive" });
     },
   });
 
@@ -217,6 +230,9 @@ function SourcesTab() {
       setReviewEntries(prev => prev.map(e => e.id === updated.id ? updated : e));
       setEditingPendingId(null);
       toast({ title: "Entry updated" });
+    },
+    onError: () => {
+      toast({ title: "Couldn't update entry", description: "The server didn't respond. Try again.", variant: "destructive" });
     },
   });
 
@@ -231,6 +247,9 @@ function SourcesTab() {
       setUrlPhase("done");
       queryClient.invalidateQueries({ queryKey: ["/api/knowledge"] });
       queryClient.invalidateQueries({ queryKey: ["/api/knowledge/sources"] });
+    },
+    onError: () => {
+      toast({ title: "Couldn't approve entries", description: "The server didn't respond. Try again.", variant: "destructive" });
     },
   });
 
@@ -251,7 +270,11 @@ function SourcesTab() {
   };
 
   const handleApproveEntry = async (entry: PendingKnowledge) => {
-    await approvePendingMutation.mutateAsync(entry.id);
+    try {
+      await approvePendingMutation.mutateAsync(entry.id);
+    } catch {
+      return; // onError already surfaced a toast
+    }
     setReviewEntries(prev => prev.filter(e => e.id !== entry.id));
     if (reviewEntries.length <= 1) {
       setUrlPhase("done");
@@ -259,7 +282,11 @@ function SourcesTab() {
   };
 
   const handleDeleteEntry = async (entry: PendingKnowledge) => {
-    await deletePendingMutation.mutateAsync(entry.id);
+    try {
+      await deletePendingMutation.mutateAsync(entry.id);
+    } catch {
+      return; // onError already surfaced a toast
+    }
     setReviewEntries(prev => prev.filter(e => e.id !== entry.id));
     if (reviewEntries.length <= 1) {
       setUrlPhase("done");
@@ -326,7 +353,20 @@ function SourcesTab() {
             return (
               <Card key={source.sourceUrl} data-testid={`card-source-${idx}`}>
                 <div className="flex items-center justify-between px-4 py-3">
-                  <div className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer" onClick={() => toggleSourceExpand(source.sourceUrl)}>
+                  <div
+                    className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
+                    onClick={() => toggleSourceExpand(source.sourceUrl)}
+                    role="button"
+                    tabIndex={0}
+                    aria-expanded={isExpanded}
+                    onKeyDown={(e) => {
+                      if (e.target !== e.currentTarget) return;
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        toggleSourceExpand(source.sourceUrl);
+                      }
+                    }}
+                  >
                     {isExpanded ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
                     <div className="min-w-0 flex-1">
                       <a
@@ -350,6 +390,7 @@ function SourcesTab() {
                     size="icon"
                     className="h-8 w-8 text-destructive shrink-0 ml-2"
                     onClick={() => setDeleteSourceTarget(source)}
+                    aria-label="Remove source and its entries"
                     data-testid={`button-delete-source-${idx}`}
                   >
                     <Trash2 className="h-4 w-4" />
@@ -410,6 +451,7 @@ function SourcesTab() {
                   onChange={(e) => setUrlInput(e.target.value)}
                   placeholder="https://www.demandbase.com/..."
                   onKeyDown={(e) => e.key === "Enter" && handleSubmitUrl()}
+                  aria-label="Webpage URL to extract knowledge from"
                   data-testid="input-url-source"
                 />
               </div>
@@ -589,6 +631,7 @@ function SourcesTab() {
                                 className="h-7 w-7"
                                 onClick={() => startEditPending(entry)}
                                 title="Edit"
+                                aria-label="Edit extracted entry"
                                 data-testid={`button-edit-pending-${entry.id}`}
                               >
                                 <Edit className="h-3.5 w-3.5" />
@@ -600,21 +643,29 @@ function SourcesTab() {
                                 onClick={() => handleApproveEntry(entry)}
                                 disabled={approvePendingMutation.isPending}
                                 title="Approve"
+                                aria-label="Approve extracted entry"
                                 data-testid={`button-approve-pending-${entry.id}`}
                               >
                                 <Check className="h-3.5 w-3.5" />
                               </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-destructive"
-                                onClick={() => handleDeleteEntry(entry)}
-                                disabled={deletePendingMutation.isPending}
-                                title="Delete"
-                                data-testid={`button-delete-pending-${entry.id}`}
+                              <ConfirmDestructive
+                                title={`Discard "${entry.title}"?`}
+                                description="This permanently deletes the extracted entry before it reaches the knowledge base. This can't be undone."
+                                confirmLabel="Discard"
+                                onConfirm={() => handleDeleteEntry(entry)}
                               >
-                                <X className="h-3.5 w-3.5" />
-                              </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-destructive"
+                                  disabled={deletePendingMutation.isPending}
+                                  title="Delete"
+                                  aria-label="Discard extracted entry"
+                                  data-testid={`button-delete-pending-${entry.id}`}
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                </Button>
+                              </ConfirmDestructive>
                             </div>
                           </div>
                           <p className="text-sm text-muted-foreground whitespace-pre-wrap line-clamp-4">{entry.content}</p>
@@ -680,6 +731,9 @@ function KnowledgeBaseTab() {
       setNewEntry({ category: "", title: "", content: "", sourceUrl: "" });
       toast({ title: "Entry created" });
     },
+    onError: () => {
+      toast({ title: "Couldn't create entry", description: "The server didn't respond. Try again.", variant: "destructive" });
+    },
   });
 
   const updateMutation = useMutation({
@@ -692,6 +746,9 @@ function KnowledgeBaseTab() {
       setEditingEntry(null);
       toast({ title: "Entry updated" });
     },
+    onError: () => {
+      toast({ title: "Couldn't update entry", description: "The server didn't respond. Try again.", variant: "destructive" });
+    },
   });
 
   const deleteMutation = useMutation({
@@ -702,6 +759,9 @@ function KnowledgeBaseTab() {
       queryClient.invalidateQueries({ queryKey: ["/api/knowledge"] });
       setDeleteTarget(null);
       toast({ title: "Entry deleted" });
+    },
+    onError: () => {
+      toast({ title: "Couldn't delete entry", description: "The server didn't respond. Try again.", variant: "destructive" });
     },
   });
 
@@ -754,6 +814,7 @@ function KnowledgeBaseTab() {
             value={searchFilter}
             onChange={(e) => setSearchFilter(e.target.value)}
             className="pl-10"
+            aria-label="Search knowledge base"
             data-testid="input-search-knowledge"
           />
         </div>
@@ -803,7 +864,20 @@ function KnowledgeBaseTab() {
             const activeCount = catEntries.filter((e) => e.isActive).length;
             return (
               <Card key={category} data-testid={`card-category-${category.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}>
-                <CardHeader className="cursor-pointer py-3 px-4" onClick={() => toggleCategory(category)}>
+                <CardHeader
+                  className="cursor-pointer py-3 px-4"
+                  onClick={() => toggleCategory(category)}
+                  role="button"
+                  tabIndex={0}
+                  aria-expanded={isExpanded}
+                  onKeyDown={(e) => {
+                    if (e.target !== e.currentTarget) return;
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      toggleCategory(category);
+                    }
+                  }}
+                >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
@@ -830,13 +904,13 @@ function KnowledgeBaseTab() {
                             )}
                           </div>
                           <div className="flex items-center gap-1 shrink-0">
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => toggleActive(entry)} title={entry.isActive ? "Disable" : "Enable"} data-testid={`button-toggle-${entry.id}`}>
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => toggleActive(entry)} title={entry.isActive ? "Disable" : "Enable"} aria-label={entry.isActive ? "Disable entry" : "Enable entry"} data-testid={`button-toggle-${entry.id}`}>
                               {entry.isActive ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
                             </Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditingEntry(entry)} data-testid={`button-edit-${entry.id}`}>
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditingEntry(entry)} aria-label="Edit entry" data-testid={`button-edit-${entry.id}`}>
                               <Edit className="h-3.5 w-3.5" />
                             </Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteTarget(entry)} data-testid={`button-delete-${entry.id}`}>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteTarget(entry)} aria-label="Delete entry" data-testid={`button-delete-${entry.id}`}>
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
                           </div>
@@ -870,14 +944,14 @@ function KnowledgeBaseTab() {
             <div>
               <label className="text-sm font-medium mb-1.5 block">Title</label>
               <div className="flex items-center gap-1">
-                <Input value={newEntry.title} onChange={(e) => setNewEntry({ ...newEntry, title: e.target.value })} placeholder="e.g., B2B DSP Differentiators" data-testid="input-new-title" />
+                <Input value={newEntry.title} onChange={(e) => setNewEntry({ ...newEntry, title: e.target.value })} placeholder="e.g., B2B DSP Differentiators" aria-label="Entry title" data-testid="input-new-title" />
                 <VoiceInputButton onTranscript={(text) => setNewEntry((prev) => ({ ...prev, title: prev.title ? prev.title + " " + text : text }))} />
               </div>
             </div>
             <div>
               <label className="text-sm font-medium mb-1.5 block">Content</label>
               <div className="relative">
-                <Textarea value={newEntry.content} onChange={(e) => setNewEntry({ ...newEntry, content: e.target.value })} placeholder="Enter the knowledge content..." rows={10} data-testid="input-new-content" />
+                <Textarea value={newEntry.content} onChange={(e) => setNewEntry({ ...newEntry, content: e.target.value })} placeholder="Enter the knowledge content..." rows={10} aria-label="Entry content" data-testid="input-new-content" />
                 <div className="absolute top-1.5 right-1.5">
                   <VoiceInputButton onTranscript={(text) => setNewEntry((prev) => ({ ...prev, content: prev.content ? prev.content + " " + text : text }))} />
                 </div>
@@ -885,7 +959,7 @@ function KnowledgeBaseTab() {
             </div>
             <div>
               <label className="text-sm font-medium mb-1.5 block">Source URL (optional)</label>
-              <Input value={newEntry.sourceUrl} onChange={(e) => setNewEntry({ ...newEntry, sourceUrl: e.target.value })} placeholder="https://www.demandbase.com/..." data-testid="input-new-source-url" />
+              <Input value={newEntry.sourceUrl} onChange={(e) => setNewEntry({ ...newEntry, sourceUrl: e.target.value })} placeholder="https://www.demandbase.com/..." aria-label="Source URL" data-testid="input-new-source-url" />
             </div>
           </div>
           <DialogFooter>
@@ -1062,6 +1136,7 @@ function FeatureCard({ feature, onUpdate, onDelete, onToggle, allProducts, onMov
               onChange={(e) => setDraft({ ...draft, featureName: e.target.value })}
               onClick={(e) => e.stopPropagation()}
               className="text-sm font-medium h-7"
+              aria-label="Feature name"
               data-testid={`input-feature-name-${feature.id}`}
             />
           ) : (
@@ -1071,10 +1146,10 @@ function FeatureCard({ feature, onUpdate, onDelete, onToggle, allProducts, onMov
         <div className="flex items-center gap-0.5 shrink-0">
           {editing ? (
             <>
-              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={saveEdits} data-testid={`button-save-feature-${feature.id}`}>
+              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={saveEdits} aria-label="Save feature changes" data-testid={`button-save-feature-${feature.id}`}>
                 <Save className="h-3 w-3 text-green-600" />
               </Button>
-              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setEditing(false); setDraft({}); }} data-testid={`button-cancel-feature-${feature.id}`}>
+              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setEditing(false); setDraft({}); }} aria-label="Cancel feature editing" data-testid={`button-cancel-feature-${feature.id}`}>
                 <X className="h-3 w-3 text-red-500" />
               </Button>
             </>
@@ -1082,7 +1157,7 @@ function FeatureCard({ feature, onUpdate, onDelete, onToggle, allProducts, onMov
             <>
               {onMoveFeature && moveTargets.length > 0 && (
                 <div className="relative" ref={moveMenuRef}>
-                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setShowMoveMenu(!showMoveMenu); setShowDuplicateMenu(false); }} data-testid={`button-move-feature-${feature.id}`}>
+                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setShowMoveMenu(!showMoveMenu); setShowDuplicateMenu(false); }} aria-label="Move feature to another product" data-testid={`button-move-feature-${feature.id}`}>
                     <ArrowRight className="h-3 w-3" />
                   </Button>
                   {showMoveMenu && (
@@ -1105,7 +1180,7 @@ function FeatureCard({ feature, onUpdate, onDelete, onToggle, allProducts, onMov
               )}
               {onDuplicateFeature && duplicateTargets.length > 0 && (
                 <div className="relative" ref={duplicateMenuRef}>
-                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setShowDuplicateMenu(!showDuplicateMenu); setShowMoveMenu(false); }} data-testid={`button-duplicate-feature-${feature.id}`}>
+                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setShowDuplicateMenu(!showDuplicateMenu); setShowMoveMenu(false); }} aria-label="Duplicate feature to another product" data-testid={`button-duplicate-feature-${feature.id}`}>
                     <Copy className="h-3 w-3" />
                   </Button>
                   {showDuplicateMenu && (
@@ -1127,15 +1202,21 @@ function FeatureCard({ feature, onUpdate, onDelete, onToggle, allProducts, onMov
                   )}
                 </div>
               )}
-              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onToggle(feature.id, !feature.isActive)}>
+              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onToggle(feature.id, !feature.isActive)} aria-label={feature.isActive ? "Disable feature" : "Enable feature"}>
                 {feature.isActive ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
               </Button>
-              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={startEditing}>
+              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={startEditing} aria-label="Edit feature">
                 <Edit className="h-3 w-3" />
               </Button>
-              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onDelete(feature.id)}>
-                <Trash2 className="h-3 w-3" />
-              </Button>
+              <ConfirmDestructive
+                title={`Delete "${feature.featureName}"?`}
+                description="This permanently deletes the feature and its capabilities, personas, and talk track. This can't be undone."
+                onConfirm={() => onDelete(feature.id)}
+              >
+                <Button variant="ghost" size="icon" className="h-6 w-6" aria-label={`Delete feature "${feature.featureName}"`}>
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </ConfirmDestructive>
             </>
           )}
         </div>
@@ -1151,6 +1232,7 @@ function FeatureCard({ feature, onUpdate, onDelete, onToggle, allProducts, onMov
                   onChange={(e) => setDraft({ ...draft, [field.key]: e.target.value })}
                   placeholder={field.placeholder}
                   className="min-h-[80px] text-xs"
+                  aria-label={field.label}
                   data-testid={`textarea-feature-${field.key}-${feature.id}`}
                 />
               ) : (
@@ -1333,6 +1415,7 @@ function ProductCard({ product, onUpdate, onDelete, onToggle, isChild, allProduc
               className="shrink-0 cursor-grab active:cursor-grabbing p-1 -ml-1 mr-1 text-muted-foreground hover:text-foreground touch-none"
               {...listeners}
               {...attributes}
+              aria-label={`Drag to move ${product.productName}`}
               data-testid={`drag-handle-product-${product.id}`}
             >
               <GripVertical className="h-4 w-4" />
@@ -1351,6 +1434,7 @@ function ProductCard({ product, onUpdate, onDelete, onToggle, isChild, allProduc
                 onChange={(e) => setDraft({ ...draft, productName: e.target.value })}
                 onClick={(e) => e.stopPropagation()}
                 className="text-lg font-semibold h-8"
+                aria-label="Product name"
                 data-testid={`input-product-name-${product.id}`}
               />
             ) : (
@@ -1369,24 +1453,34 @@ function ProductCard({ product, onUpdate, onDelete, onToggle, isChild, allProduc
           <div className="flex items-center gap-1 shrink-0">
             {editing ? (
               <>
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={saveEdits} data-testid={`button-save-product-${product.id}`}>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={saveEdits} aria-label="Save product changes" data-testid={`button-save-product-${product.id}`}>
                   <Save className="h-3.5 w-3.5 text-green-600" />
                 </Button>
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={cancelEdits} data-testid={`button-cancel-product-${product.id}`}>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={cancelEdits} aria-label="Cancel product editing" data-testid={`button-cancel-product-${product.id}`}>
                   <X className="h-3.5 w-3.5 text-red-500" />
                 </Button>
               </>
             ) : (
               <>
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onToggle(product.id, !product.isActive)} data-testid={`button-toggle-active-product-${product.id}`}>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onToggle(product.id, !product.isActive)} aria-label={product.isActive ? "Disable product" : "Enable product"} data-testid={`button-toggle-active-product-${product.id}`}>
                   {product.isActive ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
                 </Button>
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={startEditing} data-testid={`button-edit-product-${product.id}`}>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={startEditing} aria-label="Edit product" data-testid={`button-edit-product-${product.id}`}>
                   <Edit className="h-3.5 w-3.5" />
                 </Button>
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onDelete(product.id)} data-testid={`button-delete-product-${product.id}`}>
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
+                <ConfirmDestructive
+                  title={`Delete "${product.productName}"?`}
+                  description={
+                    isSuite
+                      ? `This permanently deletes the "${product.productName}" suite and its product knowledge. This can't be undone.`
+                      : `This permanently deletes "${product.productName}" and its features and talk tracks. This can't be undone.`
+                  }
+                  onConfirm={() => onDelete(product.id)}
+                >
+                  <Button variant="ghost" size="icon" className="h-7 w-7" aria-label={`Delete ${isSuite ? "suite" : "product"} "${product.productName}"`} data-testid={`button-delete-product-${product.id}`}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </ConfirmDestructive>
               </>
             )}
           </div>
@@ -1403,6 +1497,7 @@ function ProductCard({ product, onUpdate, onDelete, onToggle, isChild, allProduc
                   onChange={(e) => setDraft({ ...draft, [field.key]: e.target.value })}
                   placeholder={field.placeholder}
                   className="min-h-[100px] text-sm"
+                  aria-label={field.label}
                   data-testid={`textarea-${field.key}-${product.id}`}
                 />
               ) : (
@@ -1460,6 +1555,7 @@ function ProductCard({ product, onUpdate, onDelete, onToggle, isChild, allProduc
                       onChange={(e) => setNewFeatureName(e.target.value)}
                       placeholder="Feature name..."
                       className="text-sm h-8 flex-1"
+                      aria-label="New feature name"
                       autoFocus
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && newFeatureName.trim()) addFeatureMutation.mutate(newFeatureName.trim());
@@ -1476,7 +1572,7 @@ function ProductCard({ product, onUpdate, onDelete, onToggle, isChild, allProduc
                     >
                       Add
                     </Button>
-                    <Button size="sm" variant="ghost" className="h-8" onClick={() => { setAddingFeature(false); setNewFeatureName(""); }}>
+                    <Button size="sm" variant="ghost" className="h-8" onClick={() => { setAddingFeature(false); setNewFeatureName(""); }} aria-label="Cancel adding feature">
                       <X className="h-3.5 w-3.5" />
                     </Button>
                   </div>
@@ -1527,6 +1623,9 @@ function ProductsTab() {
       queryClient.invalidateQueries({ queryKey: ["/api/knowledge"] });
       toast({ title: "Overlaps resolved", description: `${data.deactivated} knowledge base entries deactivated.` });
     },
+    onError: () => {
+      toast({ title: "Couldn't deactivate overlaps", description: "The server didn't respond. Try again.", variant: "destructive" });
+    },
   });
 
   const seedMutation = useMutation({
@@ -1552,6 +1651,9 @@ function ProductsTab() {
       queryClient.invalidateQueries({ queryKey: ["/api/product-knowledge"] });
       toast({ title: "Product updated" });
     },
+    onError: () => {
+      toast({ title: "Couldn't update product", description: "The server didn't respond. Try again.", variant: "destructive" });
+    },
   });
 
   const deleteMutation = useMutation({
@@ -1561,6 +1663,9 @@ function ProductsTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/product-knowledge"] });
       toast({ title: "Product deleted" });
+    },
+    onError: () => {
+      toast({ title: "Couldn't delete product", description: "The server didn't respond. Try again.", variant: "destructive" });
     },
   });
 
@@ -1756,19 +1861,25 @@ function ProductsTab() {
               <Plus className="h-3.5 w-3.5 mr-1.5" />
               Add Product
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => seedMutation.mutate(true)}
-              disabled={seedMutation.isPending}
-              data-testid="button-reset-products"
+            <ConfirmDestructive
+              title="Reset products to defaults?"
+              description="This regenerates the default product structure from Demandbase knowledge and overwrites your current products, suites, sub-products, and edits. This can't be undone."
+              confirmLabel="Reset"
+              onConfirm={() => seedMutation.mutate(true)}
             >
-              {seedMutation.isPending ? (
-                <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />Resetting...</>
-              ) : (
-                <><RotateCcw className="h-3.5 w-3.5 mr-1.5" />Reset to Defaults</>
-              )}
-            </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={seedMutation.isPending}
+                data-testid="button-reset-products"
+              >
+                {seedMutation.isPending ? (
+                  <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />Resetting...</>
+                ) : (
+                  <><RotateCcw className="h-3.5 w-3.5 mr-1.5" />Reset to Defaults</>
+                )}
+              </Button>
+            </ConfirmDestructive>
           </div>
         </div>
         {activeDragProduct && (
@@ -1870,6 +1981,7 @@ function ProductsTab() {
               value={addProductDialog.name}
               onChange={(e) => setAddProductDialog({ ...addProductDialog, name: e.target.value })}
               placeholder="Product name..."
+              aria-label="Product name"
               autoFocus
               onKeyDown={(e) => {
                 if (e.key === "Enter" && addProductDialog.name.trim()) {

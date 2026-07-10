@@ -18,17 +18,17 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
 const navItems = [
-  { title: "News Feed", url: "/", icon: Newspaper },
-  { title: "Daily Briefing", url: "/briefing", icon: FileText },
-  { title: "Morning Brief", url: "/morning-brief", icon: Mail },
-  { title: "Trends", url: "/trends", icon: BarChart3 },
-  { title: "Thought Leadership", url: "/thought-leadership", icon: Lightbulb },
-  { title: "Public Company Analysis", url: "/company-analysis", icon: Building2 },
-  { title: "AI Analyst", url: "/analyst", icon: Brain },
-  { title: "Field Enablement", url: "/enablement", icon: Target },
-  { title: "DB POV", url: "/db-pov", icon: Database },
-  { title: "Research", url: "/research", icon: Search },
-  { title: "Sources", url: "/sources", icon: BookOpen },
+  { title: "News Feed", url: "/", icon: Newspaper, description: "Latest articles from your sources" },
+  { title: "Daily Briefing", url: "/briefing", icon: FileText, description: "Generate an AI news summary for any date range" },
+  { title: "Morning Brief", url: "/morning-brief", icon: Mail, description: "Archive of the weekday-morning email digest" },
+  { title: "Trends", url: "/trends", icon: BarChart3, description: "AI trend snapshots and competitive intelligence" },
+  { title: "Thought Leadership", url: "/thought-leadership", icon: Lightbulb, description: "Turn news into content ideas, blogs, and decks" },
+  { title: "Public Company Analysis", url: "/company-analysis", icon: Building2, description: "AI reports on public companies" },
+  { title: "AI Analyst", url: "/analyst", icon: Brain, description: "Chat with an analyst grounded in your news and briefings" },
+  { title: "Field Enablement", url: "/enablement", icon: Target, description: "Generate battle cards, emails, and sales decks" },
+  { title: "Knowledge Base", url: "/db-pov", icon: Database, description: "Approved Demandbase product knowledge (DB POV)" },
+  { title: "Research", url: "/research", icon: Search, description: "Crawl competitor sites and extract intel" },
+  { title: "Sources", url: "/sources", icon: BookOpen, description: "Manage feeds, competitors, and uploads" },
 ];
 
 export function AppSidebar() {
@@ -67,7 +67,7 @@ export function AppSidebar() {
           </div>
           <div>
             <h2 className="text-sm font-bold tracking-tight" data-testid="text-app-title">B2B MarTech Intel</h2>
-            <p className="text-[11px] text-sidebar-foreground/60">AI-Powered Intelligence</p>
+            <p className="text-[11px] text-sidebar-foreground/70">Demandbase market intelligence</p>
           </div>
         </div>
       </SidebarHeader>
@@ -79,7 +79,7 @@ export function AppSidebar() {
               {navItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild data-active={location === item.url} className="rounded-lg transition-colors duration-150">
-                    <Link href={item.url} data-testid={`link-nav-${item.title.toLowerCase().replace(/\s+/g, '-')}`}>
+                    <Link href={item.url} title={item.description} data-testid={`link-nav-${item.title.toLowerCase().replace(/\s+/g, '-')}`}>
                       <item.icon className="h-4 w-4" />
                       <span className="text-[13px] font-medium">{item.title}</span>
                     </Link>

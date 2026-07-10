@@ -9,7 +9,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ProcessingQueue } from "@/components/processing-queue";
-import { Loader2 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import NewsFeed from "@/pages/news-feed";
 
 const Trends = lazy(() => import("@/pages/trends"));
@@ -26,8 +26,14 @@ const NotFound = lazy(() => import("@/pages/not-found"));
 
 function PageLoader() {
   return (
-    <div className="flex items-center justify-center h-full" data-testid="page-loader">
-      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+    <div className="h-full p-6 space-y-4" data-testid="page-loader" role="status" aria-label="Loading page">
+      <Skeleton className="h-7 w-48" />
+      <Skeleton className="h-4 w-72" />
+      <div className="space-y-3 pt-4">
+        <Skeleton className="h-24 w-full max-w-3xl" />
+        <Skeleton className="h-24 w-full max-w-3xl" />
+        <Skeleton className="h-24 w-full max-w-3xl" />
+      </div>
     </div>
   );
 }
@@ -64,17 +70,23 @@ export default function App() {
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <SidebarProvider style={sidebarStyle as React.CSSProperties}>
+            <a
+              href="#main-content"
+              className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-md focus:bg-primary focus:px-3 focus:py-2 focus:text-sm focus:text-primary-foreground"
+            >
+              Skip to content
+            </a>
             <div className="flex h-screen w-full">
               <AppSidebar />
               <div className="flex flex-col flex-1 min-w-0">
                 <header className="flex items-center justify-between gap-2 px-3 md:px-4 border-b border-border/60 h-11 md:h-12 bg-background/80 backdrop-blur-sm">
-                  <SidebarTrigger data-testid="button-sidebar-toggle" />
+                  <SidebarTrigger data-testid="button-sidebar-toggle" aria-label="Toggle sidebar" />
                   <div className="flex items-center gap-1.5">
                     <ProcessingQueue />
                     <ThemeToggle />
                   </div>
                 </header>
-                <main className="flex-1 overflow-hidden">
+                <main id="main-content" className="flex-1 overflow-hidden">
                   <Router />
                 </main>
               </div>

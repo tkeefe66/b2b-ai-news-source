@@ -60,6 +60,7 @@ export function ProcessingQueue() {
         <Button
           size="icon"
           variant="ghost"
+          aria-label="Open processing queue"
           data-testid="button-processing-queue"
           className="relative"
         >

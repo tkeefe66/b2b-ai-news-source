@@ -19,6 +19,7 @@ import {
   Sparkles, Upload, Eye, Check, X, RefreshCw
 } from "lucide-react";
 import type { CrawlJob, CrawlEntry, Competitor } from "@shared/schema";
+import { ConfirmDestructive } from "@/components/confirm-destructive";
 
 function StatusBadge({ status }: { status: string }) {
   const variants: Record<string, { color: string; icon: any }> = {
@@ -98,6 +99,7 @@ function CompanyIntelTab() {
                 value={crawlUrl}
                 onChange={(e) => setCrawlUrl(e.target.value)}
                 placeholder="https://www.demandbase.com"
+                aria-label="Crawl URL"
                 className="h-9 text-sm"
                 data-testid="input-crawl-url"
               />
@@ -181,6 +183,9 @@ function CompetitorResearchTab() {
       setNewDescription("");
       toast({ title: "Competitor added" });
     },
+    onError: () => {
+      toast({ title: "Couldn't add competitor", description: "Check the name and website URL, then try again.", variant: "destructive" });
+    },
   });
 
   const deleteCompetitorMutation = useMutation({
@@ -190,6 +195,9 @@ function CompetitorResearchTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/research/competitors"] });
       toast({ title: "Competitor removed" });
+    },
+    onError: () => {
+      toast({ title: "Couldn't remove competitor", description: "The delete failed. Refresh and try again.", variant: "destructive" });
     },
   });
 
@@ -207,6 +215,9 @@ function CompetitorResearchTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/research/crawl-jobs", "competitor"] });
       toast({ title: "Competitor crawl started" });
+    },
+    onError: () => {
+      toast({ title: "Couldn't start competitor crawl", description: "The crawl request failed. Verify the website URL and try again.", variant: "destructive" });
     },
   });
 
@@ -233,15 +244,15 @@ function CompetitorResearchTab() {
             <div className="space-y-3 py-2">
               <div>
                 <label className="text-xs font-medium text-muted-foreground mb-1 block">Company Name</label>
-                <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="e.g. 6sense" data-testid="input-competitor-name" />
+                <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="e.g. 6sense" aria-label="Competitor name" data-testid="input-competitor-name" />
               </div>
               <div>
                 <label className="text-xs font-medium text-muted-foreground mb-1 block">Website URL</label>
-                <Input value={newWebsite} onChange={(e) => setNewWebsite(e.target.value)} placeholder="https://www.6sense.com" data-testid="input-competitor-website" />
+                <Input value={newWebsite} onChange={(e) => setNewWebsite(e.target.value)} placeholder="https://www.6sense.com" aria-label="Competitor website URL" data-testid="input-competitor-website" />
               </div>
               <div>
                 <label className="text-xs font-medium text-muted-foreground mb-1 block">Description (optional)</label>
-                <Textarea value={newDescription} onChange={(e) => setNewDescription(e.target.value)} placeholder="Brief description..." rows={2} data-testid="input-competitor-description" />
+                <Textarea value={newDescription} onChange={(e) => setNewDescription(e.target.value)} placeholder="Brief description..." aria-label="Competitor description" rows={2} data-testid="input-competitor-description" />
               </div>
             </div>
             <DialogFooter>
@@ -276,7 +287,7 @@ function CompetitorResearchTab() {
                       <div className="flex items-center gap-2 mb-1">
                         <h4 className="text-sm font-semibold" data-testid={`text-competitor-name-${comp.id}`}>{comp.name}</h4>
                         {comp.websiteUrl && (
-                          <a href={comp.websiteUrl} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground">
+                          <a href={comp.websiteUrl} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground" aria-label={`Open ${comp.name} website`}>
                             <ExternalLink className="h-3 w-3" />
                           </a>
                         )}
@@ -309,15 +320,22 @@ function CompetitorResearchTab() {
                         <Search className="h-3 w-3 mr-1" />
                         Crawl
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
-                        onClick={() => deleteCompetitorMutation.mutate(comp.id)}
-                        data-testid={`button-delete-competitor-${comp.id}`}
+                      <ConfirmDestructive
+                        title={`Remove "${comp.name}"?`}
+                        description="This competitor and its tracking configuration are permanently removed. Past crawl jobs remain in crawl history. This can't be undone."
+                        confirmLabel="Remove"
+                        onConfirm={() => deleteCompetitorMutation.mutate(comp.id)}
                       >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                          aria-label={`Delete competitor ${comp.name}`}
+                          data-testid={`button-delete-competitor-${comp.id}`}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </ConfirmDestructive>
                     </div>
                   </div>
                 </CardContent>
@@ -365,7 +383,16 @@ function CrawlJobsList({ jobs, isLoading }: { jobs: CrawlJob[]; isLoading: boole
           <CardContent className="p-3">
             <div
               className="flex items-center justify-between cursor-pointer"
+              role="button"
+              tabIndex={0}
+              aria-expanded={expandedJob === job.id}
               onClick={() => setExpandedJob(expandedJob === job.id ? null : job.id)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setExpandedJob(expandedJob === job.id ? null : job.id);
+                }
+              }}
               data-testid={`button-expand-job-${job.id}`}
             >
               <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -435,6 +462,13 @@ function CrawlJobDetail({ jobId, jobStatus }: { jobId: number; jobStatus: string
       setSelectedEntries(new Set());
       toast({ title: "Entries updated" });
     },
+    onError: (_err, vars) => {
+      toast({
+        title: vars.status === "approved" ? "Couldn't approve entries" : "Couldn't reject entries",
+        description: "The status update failed. Try again.",
+        variant: "destructive",
+      });
+    },
   });
 
   const pushApprovedMutation = useMutation({
@@ -448,6 +482,9 @@ function CrawlJobDetail({ jobId, jobStatus }: { jobId: number; jobStatus: string
         title: "Pushed to Knowledge Base",
         description: `${data.pushed} entries pushed, ${data.conflicts} conflicts detected.`,
       });
+    },
+    onError: () => {
+      toast({ title: "Couldn't push entries to Knowledge Base", description: "The push failed. Try again.", variant: "destructive" });
     },
   });
 
@@ -464,6 +501,9 @@ function CrawlJobDetail({ jobId, jobStatus }: { jobId: number; jobStatus: string
         toast({ title: "Pushed to Knowledge Base" });
       }
     },
+    onError: () => {
+      toast({ title: "Couldn't push entry to Knowledge Base", description: "The push failed. Try again.", variant: "destructive" });
+    },
   });
 
   const deleteJobMutation = useMutation({
@@ -473,6 +513,9 @@ function CrawlJobDetail({ jobId, jobStatus }: { jobId: number; jobStatus: string
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/research/crawl-jobs"] });
       toast({ title: "Crawl job deleted" });
+    },
+    onError: () => {
+      toast({ title: "Couldn't delete crawl job", description: "The delete failed. Refresh and try again.", variant: "destructive" });
     },
   });
 
@@ -545,16 +588,22 @@ function CrawlJobDetail({ jobId, jobStatus }: { jobId: number; jobStatus: string
                   <Check className="h-3 w-3 mr-1" />
                   Approve ({selectedEntries.size})
                 </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-7 text-xs"
-                  onClick={() => batchStatusMutation.mutate({ ids: [...selectedEntries], status: "rejected" })}
-                  data-testid="button-batch-reject"
+                <ConfirmDestructive
+                  title={`Reject ${selectedEntries.size} ${selectedEntries.size === 1 ? "entry" : "entries"}?`}
+                  description="Rejected entries are excluded from the Knowledge Base push. There is no bulk un-reject."
+                  confirmLabel="Reject"
+                  onConfirm={() => batchStatusMutation.mutate({ ids: [...selectedEntries], status: "rejected" })}
                 >
-                  <X className="h-3 w-3 mr-1" />
-                  Reject ({selectedEntries.size})
-                </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs"
+                    data-testid="button-batch-reject"
+                  >
+                    <X className="h-3 w-3 mr-1" />
+                    Reject ({selectedEntries.size})
+                  </Button>
+                </ConfirmDestructive>
               </div>
             )}
             <Button
@@ -569,16 +618,21 @@ function CrawlJobDetail({ jobId, jobStatus }: { jobId: number; jobStatus: string
             </Button>
           </>
         )}
-        <Button
-          size="sm"
-          variant="ghost"
-          className="h-7 text-xs text-destructive hover:text-destructive"
-          onClick={() => deleteJobMutation.mutate()}
-          data-testid={`button-delete-job-${jobId}`}
+        <ConfirmDestructive
+          title="Delete this crawl job?"
+          description="The crawl job and all of its extracted entries are permanently deleted, including any not yet pushed to the Knowledge Base. This can't be undone."
+          onConfirm={() => deleteJobMutation.mutate()}
         >
-          <Trash2 className="h-3 w-3 mr-1" />
-          Delete Job
-        </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 text-xs text-destructive hover:text-destructive"
+            data-testid={`button-delete-job-${jobId}`}
+          >
+            <Trash2 className="h-3 w-3 mr-1" />
+            Delete Job
+          </Button>
+        </ConfirmDestructive>
       </div>
 
       {entriesQuery.isLoading ? (
@@ -674,6 +728,7 @@ function CrawlJobDetail({ jobId, jobStatus }: { jobId: number; jobStatus: string
                               size="sm"
                               className="h-6 w-6 p-0 text-green-600 hover:text-green-700"
                               onClick={() => batchStatusMutation.mutate({ ids: [entry.id], status: "approved" })}
+                              aria-label="Approve entry"
                               data-testid={`button-approve-${entry.id}`}
                             >
                               <Check className="h-3.5 w-3.5" />
@@ -683,6 +738,7 @@ function CrawlJobDetail({ jobId, jobStatus }: { jobId: number; jobStatus: string
                               size="sm"
                               className="h-6 w-6 p-0 text-red-500 hover:text-red-600"
                               onClick={() => batchStatusMutation.mutate({ ids: [entry.id], status: "rejected" })}
+                              aria-label="Reject entry"
                               data-testid={`button-reject-${entry.id}`}
                             >
                               <X className="h-3.5 w-3.5" />

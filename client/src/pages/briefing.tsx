@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileText, RefreshCw, Clock, ChevronRight, Sparkles, Calendar, GitCompareArrows, History, Search, Trash2, ChevronDown, ChevronUp, BookOpen, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { ConfirmDestructive } from "@/components/confirm-destructive";
 import type { Briefing } from "@shared/schema";
 import { DateRangePicker } from "@/components/date-range-picker";
 import type { DateRange } from "react-day-picker";
@@ -214,6 +215,15 @@ function BriefingCard({
           : "border-card-border hover:border-primary/30"
       }`}
       onClick={onSelect}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.target !== e.currentTarget) return;
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onSelect();
+        }
+      }}
       data-testid={`card-briefing-${briefing.id}`}
     >
       <div className="flex items-start justify-between gap-2">
@@ -242,18 +252,21 @@ function BriefingCard({
             Generated {formatDate(briefing.createdAt)}
           </p>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-6 w-6 shrink-0 text-muted-foreground hover:text-destructive"
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete();
-          }}
-          data-testid={`button-delete-briefing-${briefing.id}`}
+        <ConfirmDestructive
+          title={`Delete "${briefing.title}"?`}
+          description="This permanently deletes the briefing and its executive summary. This can't be undone."
+          onConfirm={onDelete}
         >
-          <Trash2 className="h-3 w-3" />
-        </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 shrink-0 text-muted-foreground hover:text-destructive"
+            aria-label={`Delete briefing "${briefing.title}"`}
+            data-testid={`button-delete-briefing-${briefing.id}`}
+          >
+            <Trash2 className="h-3 w-3" />
+          </Button>
+        </ConfirmDestructive>
       </div>
     </Card>
   );
@@ -479,12 +492,12 @@ function BriefingsTab() {
           <div className="p-4 md:p-6 overflow-auto">
             <div className="max-w-4xl mx-auto">
               {isStreaming && (
-                <div className="flex items-center gap-2 mb-4 text-xs text-muted-foreground" data-testid="text-generating-status">
+                <div className="flex items-center gap-2 mb-4 text-xs text-muted-foreground" role="status" data-testid="text-generating-status">
                   <RefreshCw className="h-3.5 w-3.5 animate-spin" />
                   <span>Analyzing articles and generating your briefing...</span>
                 </div>
               )}
-              <Card className="p-4 md:p-6 lg:p-8" data-testid="card-briefing-content">
+              <Card className="p-4 md:p-6 lg:p-8" aria-live="polite" data-testid="card-briefing-content">
                 <BriefingRenderer content={displayContent} />
                 {isStreaming && <span className="inline-block w-2 h-4 bg-foreground/50 animate-pulse ml-0.5 mt-2" />}
               </Card>
@@ -649,12 +662,12 @@ function CompareTab() {
           {(content || isStreaming) && (
             <>
               {isStreaming && (
-                <div className="flex items-center gap-2 mb-4 text-xs text-muted-foreground" data-testid="text-comparing-status">
+                <div className="flex items-center gap-2 mb-4 text-xs text-muted-foreground" role="status" data-testid="text-comparing-status">
                   <RefreshCw className="h-3.5 w-3.5 animate-spin" />
                   <span>Analyzing differences between briefings...</span>
                 </div>
               )}
-              <Card className="p-4 md:p-6 lg:p-8" data-testid="card-compare-content">
+              <Card className="p-4 md:p-6 lg:p-8" aria-live="polite" data-testid="card-compare-content">
                 <BriefingRenderer content={content} />
                 {isStreaming && <span className="inline-block w-2 h-4 bg-foreground/50 animate-pulse ml-0.5 mt-2" />}
               </Card>
@@ -811,12 +824,12 @@ function TimeMachineTab() {
           {(content || isStreaming) && (
             <>
               {isStreaming && (
-                <div className="flex items-center gap-2 mb-4 text-xs text-muted-foreground" data-testid="text-tm-analyzing">
+                <div className="flex items-center gap-2 mb-4 text-xs text-muted-foreground" role="status" data-testid="text-tm-analyzing">
                   <RefreshCw className="h-3.5 w-3.5 animate-spin" />
                   <span>Analyzing articles across the selected time period...</span>
                 </div>
               )}
-              <Card className="p-4 md:p-6 lg:p-8" data-testid="card-tm-content">
+              <Card className="p-4 md:p-6 lg:p-8" aria-live="polite" data-testid="card-tm-content">
                 <BriefingRenderer content={content} />
                 {isStreaming && <span className="inline-block w-2 h-4 bg-foreground/50 animate-pulse ml-0.5 mt-2" />}
               </Card>

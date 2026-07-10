@@ -16,6 +16,7 @@ import {
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { VoiceInputButton } from "@/components/VoiceInputButton";
+import { ConfirmDestructive } from "@/components/confirm-destructive";
 import { GoogleDrivePickerButton } from "@/components/google-drive-picker";
 import { ModelSelector, useSelectedModel, MODEL_DISPLAY } from "@/components/ModelSelector";
 import MarkdownRenderer, { renderInline } from "@/components/MarkdownRenderer";
@@ -122,6 +123,7 @@ function LinkedInPostModal({ posts, onClose, onRefine, isRefining }: {
                   size="sm"
                   onClick={onClose}
                   className="h-7 w-7 p-0"
+                  aria-label="Close LinkedIn posts"
                   data-testid="button-close-linkedin-post"
                 >
                   <X className="h-3.5 w-3.5" />
@@ -157,6 +159,7 @@ function LinkedInPostModal({ posts, onClose, onRefine, isRefining }: {
           <div className="relative">
             <Textarea
               placeholder="e.g., Make it more conversational, add a stronger CTA, focus more on ROI metrics, shorten it..."
+              aria-label="Refinement feedback"
               value={refineFeedback}
               onChange={(e) => setRefineFeedback(e.target.value)}
               className="text-xs resize-none mb-2 pr-8"
@@ -219,7 +222,7 @@ function ContentCreatedBanner({ label, url, onClose }: { label: string; url: str
       >
         Open <ExternalLink className="h-3 w-3" />
       </a>
-      <Button variant="ghost" size="sm" onClick={onClose} className="h-6 w-6 p-0" data-testid="button-close-banner">
+      <Button variant="ghost" size="sm" onClick={onClose} className="h-6 w-6 p-0" aria-label="Dismiss notification" data-testid="button-close-banner">
         <X className="h-3.5 w-3.5" />
       </Button>
     </div>
@@ -389,7 +392,7 @@ function ContentPreviewModal({
               <><Save className="h-3 w-3 mr-1" />Save to Google Drive</>
             )}
           </Button>
-          <Button variant="ghost" size="sm" onClick={onClose} className="h-7 w-7 p-0" data-testid="button-close-preview">
+          <Button variant="ghost" size="sm" onClick={onClose} className="h-7 w-7 p-0" aria-label="Close preview" data-testid="button-close-preview">
             <X className="h-3.5 w-3.5" />
           </Button>
         </div>
@@ -462,6 +465,7 @@ function ContentPreviewModal({
             <div className="relative">
               <Textarea
                 placeholder="e.g., Make the tone more conversational, add more data points, shorten the introduction..."
+                aria-label="Refinement feedback"
                 value={refineFeedback}
                 onChange={(e) => setRefineFeedback(e.target.value)}
                 onClick={(e) => e.stopPropagation()}
@@ -774,7 +778,16 @@ function OpportunityCard({ opp, index, model }: { opp: ThoughtLeadershipOpportun
     <div className="border border-border rounded-lg overflow-hidden" data-testid={`card-opportunity-${index}`}>
       <div
         className="flex items-start gap-3 p-4 cursor-pointer select-none hover:bg-muted/30 transition-colors"
+        role="button"
+        tabIndex={0}
+        aria-expanded={expanded}
         onClick={() => setExpanded(!expanded)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setExpanded(!expanded);
+          }
+        }}
       >
         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-amber-100 dark:bg-amber-900/30 mt-0.5">
           <FormatIcon className="h-4 w-4 text-amber-700 dark:text-amber-400" />
@@ -972,6 +985,7 @@ function OpportunityCard({ opp, index, model }: { opp: ThoughtLeadershipOpportun
                         <div className="relative">
                           <Textarea
                             placeholder="Your thoughts..."
+                            aria-label={`Answer to question ${qi + 1}`}
                             value={contentAnswers[q.id] || ""}
                             onChange={(e) => setContentAnswers(prev => ({ ...prev, [q.id]: e.target.value }))}
                             rows={2}
@@ -1036,6 +1050,7 @@ function OpportunityCard({ opp, index, model }: { opp: ThoughtLeadershipOpportun
                     <Input
                       type="text"
                       placeholder="Document name in Google Drive"
+                      aria-label="Document name"
                       value={documentName}
                       onChange={(e) => setDocumentName(e.target.value)}
                       className="text-xs h-8 flex-1"
@@ -1050,6 +1065,7 @@ function OpportunityCard({ opp, index, model }: { opp: ThoughtLeadershipOpportun
                       <Input
                         type="text"
                         placeholder="Target audience, e.g., CMOs at B2B SaaS companies"
+                        aria-label="Target audience"
                         value={presentationAudience}
                         onChange={(e) => setPresentationAudience(e.target.value)}
                         className="text-xs h-8 flex-1"
@@ -1243,7 +1259,16 @@ function AnalysisCard({
     >
       <div
         className="flex items-start gap-3 p-5 cursor-pointer select-none hover:bg-muted/20 transition-colors"
+        role="button"
+        tabIndex={0}
+        aria-expanded={expanded}
         onClick={() => setExpanded(!expanded)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setExpanded(!expanded);
+          }
+        }}
       >
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
@@ -1271,14 +1296,20 @@ function AnalysisCard({
           </h3>
         </div>
         <div className="flex items-center gap-1 shrink-0">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
-            data-testid={`button-delete-tl-${item.id}`}
+          <ConfirmDestructive
+            title={`Delete "${item.title}"?`}
+            description="This analysis and all of its content opportunities are permanently deleted. This can't be undone."
+            onConfirm={() => onDelete(item.id)}
           >
-            <Trash2 className="h-4 w-4 text-muted-foreground" />
-          </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label="Delete analysis"
+              data-testid={`button-delete-tl-${item.id}`}
+            >
+              <Trash2 className="h-4 w-4 text-muted-foreground" />
+            </Button>
+          </ConfirmDestructive>
           {expanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
         </div>
       </div>
@@ -1452,6 +1483,7 @@ function MyIdeasTab({ model }: { model: string }) {
             <div className="relative">
               <Textarea
                 placeholder="e.g., 'I think the B2B industry is over-indexing on intent data and ignoring the fundamentals of relationship selling...'"
+                aria-label="Your thought leadership idea"
                 value={ideaText}
                 onChange={(e) => setIdeaText(e.target.value)}
                 rows={4}
@@ -1525,6 +1557,7 @@ function MyIdeasTab({ model }: { model: string }) {
                   <div className="relative">
                     <Textarea
                       placeholder="Share your thoughts..."
+                      aria-label={`Answer to question ${idx + 1}`}
                       value={answers[q.id] || ""}
                       onChange={(e) => setAnswers(prev => ({ ...prev, [q.id]: e.target.value }))}
                       rows={2}
@@ -1734,6 +1767,9 @@ function DocumentsTab() {
       queryClient.invalidateQueries({ queryKey: ["/api/tl-documents"] });
       toast({ title: "Document removed" });
     },
+    onError: () => {
+      toast({ title: "Couldn't remove document", description: "The delete failed. Refresh and try again.", variant: "destructive" });
+    },
   });
 
   const handleDrop = (e: React.DragEvent) => {
@@ -1792,8 +1828,10 @@ function DocumentsTab() {
                 <FileText className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
                 <span className="text-sm font-medium">{file.name}</span>
                 <button
+                  type="button"
                   onClick={(e) => { e.stopPropagation(); setFile(null); }}
                   className="ml-2 text-muted-foreground hover:text-foreground"
+                  aria-label="Clear selected file"
                   data-testid="button-clear-file"
                 >
                   <X className="h-4 w-4" />
@@ -1828,6 +1866,7 @@ function DocumentsTab() {
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder='e.g., "Forrester Wave report on ABM platforms Q1 2026" or "Internal competitive analysis of 6sense vs Demandbase"'
+                  aria-label="Document description"
                   className="text-sm min-h-[80px]"
                   data-testid="input-document-description"
                 />
@@ -1904,6 +1943,7 @@ function DocumentsTab() {
                         size="sm"
                         onClick={() => toggleMutation.mutate({ id: doc.id, isActive: !doc.isActive })}
                         className="h-8 w-8 p-0"
+                        aria-label={doc.isActive ? "Disable document" : "Enable document"}
                         title={doc.isActive ? "Disable — exclude from analyses" : "Enable — include in analyses"}
                         data-testid={`button-toggle-document-${doc.id}`}
                       >
@@ -1913,15 +1953,21 @@ function DocumentsTab() {
                           <ToggleLeft className="h-4 w-4 text-muted-foreground" />
                         )}
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => deleteMutation.mutate(doc.id)}
-                        className="h-8 w-8 p-0 text-muted-foreground hover:text-red-600"
-                        data-testid={`button-delete-document-${doc.id}`}
+                      <ConfirmDestructive
+                        title={`Delete "${doc.filename}"?`}
+                        description="This document and its extracted text are permanently removed and excluded from future thought leadership analyses. This can't be undone."
+                        onConfirm={() => deleteMutation.mutate(doc.id)}
                       >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-muted-foreground hover:text-red-600"
+                          aria-label="Delete document"
+                          data-testid={`button-delete-document-${doc.id}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </ConfirmDestructive>
                     </div>
                   </div>
                 </Card>
