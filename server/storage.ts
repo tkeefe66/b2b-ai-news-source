@@ -105,6 +105,7 @@ export interface IStorage {
   updateBrief(id: number, data: Partial<InsertBrief>): Promise<Brief | undefined>;
 
   dismissArticle(id: number): Promise<Article | undefined>;
+  undismissArticle(id: number): Promise<Article | undefined>;
   getDismissalPatterns(): Promise<{ sources: Record<string, number>; categories: Record<string, number>; total: number }>;
   getRecentArticlesByCategory(days?: number): Promise<Record<string, Article[]>>;
   getArticlesByCategoryInRange(startDate: Date, endDate: Date): Promise<Record<string, Article[]>>;
@@ -340,6 +341,15 @@ export class DatabaseStorage implements IStorage {
     const [updated] = await db
       .update(articles)
       .set({ dismissed: true, dismissedAt: new Date() })
+      .where(eq(articles.id, id))
+      .returning();
+    return updated;
+  }
+
+  async undismissArticle(id: number): Promise<Article | undefined> {
+    const [updated] = await db
+      .update(articles)
+      .set({ dismissed: false, dismissedAt: null })
       .where(eq(articles.id, id))
       .returning();
     return updated;

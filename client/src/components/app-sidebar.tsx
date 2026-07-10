@@ -16,8 +16,9 @@ import { Button } from "@/components/ui/button";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { openCommandPalette } from "@/components/command-palette";
 
-const navItems = [
+export const navItems = [
   { title: "News Feed", url: "/", icon: Newspaper, description: "Latest articles from your sources" },
   { title: "Daily Briefing", url: "/briefing", icon: FileText, description: "Generate an AI news summary for any date range" },
   { title: "Morning Brief", url: "/morning-brief", icon: Mail, description: "Archive of the weekday-morning email digest" },
@@ -65,10 +66,20 @@ export function AppSidebar() {
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sidebar-primary">
             <TrendingUp className="h-[18px] w-[18px] text-sidebar-primary-foreground" />
           </div>
-          <div>
+          <div className="min-w-0 flex-1">
             <h2 className="text-sm font-bold tracking-tight" data-testid="text-app-title">B2B MarTech Intel</h2>
             <p className="text-[11px] text-sidebar-foreground/70">Demandbase market intelligence</p>
           </div>
+          <button
+            type="button"
+            onClick={openCommandPalette}
+            title="Open command palette"
+            aria-label="Open command palette"
+            className="self-start"
+            data-testid="button-command-palette-hint"
+          >
+            <kbd className="rounded bg-sidebar-accent px-1.5 py-0.5 text-[10px] text-sidebar-foreground/70">⌘K</kbd>
+          </button>
         </div>
       </SidebarHeader>
       <SidebarContent className="px-2">

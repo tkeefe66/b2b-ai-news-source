@@ -668,6 +668,20 @@ Respond with ONLY the category name, nothing else.`,
     }
   });
 
+  app.post("/api/articles/:id/undismiss", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const article = await storage.undismissArticle(id);
+      if (!article) {
+        return res.status(404).json({ error: "Article not found" });
+      }
+      res.json({ dismissed: false, article });
+    } catch (err) {
+      console.error("Error undismissing article:", err);
+      res.status(500).json({ error: "Failed to undismiss article" });
+    }
+  });
+
   app.get("/api/articles/dismissal-patterns", async (_req, res) => {
     try {
       const patterns = await storage.getDismissalPatterns();

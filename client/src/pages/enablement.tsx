@@ -14,6 +14,7 @@ import { getTimeAgo } from "@/lib/time";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { ConfirmDestructive } from "@/components/confirm-destructive";
+import { HowEnablementWorks } from "@/components/how-enablement-works";
 import type { EnablementContent } from "@shared/schema";
 
 type ContentType = {
@@ -997,6 +998,10 @@ export default function Enablement() {
                 ))}
               </div>
             </div>
+
+            {!historyQuery.isLoading && (
+              <HowEnablementWorks defaultOpen={(historyQuery.data?.length || 0) === 0} />
+            )}
 
             {historyQuery.data && historyQuery.data.length > 0 && (
               <div className="mt-8" data-testid="enablement-history-section">

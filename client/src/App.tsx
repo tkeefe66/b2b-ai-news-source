@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
+import { CommandPalette } from "@/components/command-palette";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ProcessingQueue } from "@/components/processing-queue";
@@ -92,6 +93,7 @@ export default function App() {
               </div>
             </div>
           </SidebarProvider>
+          <CommandPalette />
           <Toaster />
         </TooltipProvider>
       </QueryClientProvider>

@@ -10,6 +10,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ExternalLink, Search, Clock, User, RefreshCw, Zap, Newspaper, X, Filter, ThumbsDown, AlertTriangle, Ban, XCircle, Building2, RefreshCcw } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
 import type { Article } from "@shared/schema";
 import { DateRangePicker } from "@/components/date-range-picker";
 import type { DateRange } from "react-day-picker";
@@ -267,14 +268,38 @@ export default function NewsFeed() {
     staleTime: 60000,
   });
 
-  const dismissMutation = useMutation({
+  const undismissMutation = useMutation({
     mutationFn: async (articleId: number) => {
-      await apiRequest("POST", `/api/articles/${articleId}/dismiss`);
+      await apiRequest("POST", `/api/articles/${articleId}/undismiss`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/articles"] });
       queryClient.invalidateQueries({ queryKey: ["/api/articles/dismissal-patterns"] });
-      toast({ title: "Article dismissed", description: "This article has been removed from your feed." });
+    },
+    onError: () => {
+      toast({ title: "Couldn't restore article", variant: "destructive" });
+    },
+  });
+
+  const dismissMutation = useMutation({
+    mutationFn: async (articleId: number) => {
+      await apiRequest("POST", `/api/articles/${articleId}/dismiss`);
+    },
+    onSuccess: (_data, articleId) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/articles"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/articles/dismissal-patterns"] });
+      toast({
+        title: "Article dismissed",
+        action: (
+          <ToastAction
+            altText="Undo dismissal"
+            data-testid="button-undo-dismiss"
+            onClick={() => undismissMutation.mutate(articleId)}
+          >
+            Undo
+          </ToastAction>
+        ),
+      });
     },
     onError: () => {
       toast({ title: "Failed to dismiss", variant: "destructive" });

@@ -37,6 +37,7 @@ import { useToast } from "@/hooks/use-toast";
 import { getTimeAgo } from "@/lib/time";
 import { ModelSelector, useSelectedModel, MODEL_DISPLAY } from "@/components/ModelSelector";
 import { DateRangePicker } from "@/components/date-range-picker";
+import { HowTrendsWorks } from "@/components/how-trends-works";
 import type { TrendAnalysis, DashboardView, Article, TrendSnapshot, TrendWatchlistItem } from "@shared/schema";
 
 import {
@@ -2001,6 +2002,11 @@ export default function Trends() {
       </div>
 
       <div className="flex-1 overflow-auto p-4">
+        {!snapshotsQuery.isLoading && (
+          <div className="max-w-5xl mx-auto mb-4">
+            <HowTrendsWorks defaultOpen={(snapshotsQuery.data?.length || 0) === 0} />
+          </div>
+        )}
         {activeTab === "watchlist" ? (
           <WatchlistTab
             watchlist={watchlistQuery.data || []}

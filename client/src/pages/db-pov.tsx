@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { VoiceInputButton } from "@/components/VoiceInputButton";
 import { ConfirmDestructive } from "@/components/confirm-destructive";
+import { HowKnowledgeBaseWorks } from "@/components/how-knowledge-base-works";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
@@ -2087,6 +2088,11 @@ function ProductDropZone({ productId, children, isActive }: { productId: number;
 export default function DbPov() {
   const [activeTab, setActiveTab] = useState<"knowledge" | "sources" | "products">("knowledge");
 
+  // Same queryKey as KnowledgeBaseTab — react-query shares the cached fetch, no extra request.
+  const { data: entries, isLoading } = useQuery<KnowledgeEntry[]>({
+    queryKey: ["/api/knowledge"],
+  });
+
   return (
     <div className="h-full overflow-y-auto">
       <div className="max-w-5xl mx-auto p-6 space-y-6">
@@ -2099,6 +2105,10 @@ export default function DbPov() {
             The Demandbase point of view — approved product knowledge that grounds the AI assistants. Edit, add, or remove entries to keep them accurate.
           </p>
         </div>
+
+        {!isLoading && (
+          <HowKnowledgeBaseWorks defaultOpen={(entries?.length || 0) === 0} />
+        )}
 
         <Tabs
           value={activeTab}
