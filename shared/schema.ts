@@ -54,6 +54,7 @@ export const articles = pgTable("articles", {
 }, (t) => ({
   sourceGuidIdx: uniqueIndex("articles_source_guid_idx").on(t.sourceId, t.guid),
   searchIdx: index("articles_search_idx").using("gin", t.searchVector),
+  tagsIdx: index("articles_tags_idx").using("gin", t.tags),
 }));
 
 // Runtime table used via raw SQL in server/rss.ts (fetch-failure tracking and
@@ -70,6 +71,8 @@ export const sourceFetchFailures = pgTable("source_fetch_failures", {
 export const FEED_TAG_STATUSES = ["pending", "approved", "rejected", "blocked"] as const;
 export type FeedTagStatus = (typeof FEED_TAG_STATUSES)[number];
 
+export const TAG_SURFACE_THRESHOLD = 3;
+
 export const feedTags = pgTable("feed_tags", {
   id: serial("id").primaryKey(),
   name: text("name").notNull().unique(),
@@ -78,6 +81,9 @@ export const feedTags = pgTable("feed_tags", {
   articleCount: integer("article_count").default(0).notNull(),
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
   reviewedAt: timestamp("reviewed_at"),
+  aiSummary: text("ai_summary"),
+  aiSuggestion: text("ai_suggestion"),
+  aiAnnotatedAt: timestamp("ai_annotated_at"),
 });
 
 export const trendAnalyses = pgTable("trend_analyses", {
@@ -135,6 +141,9 @@ export const insertFeedTagSchema = createInsertSchema(feedTags).omit({
   id: true,
   createdAt: true,
   reviewedAt: true,
+  aiSummary: true,
+  aiSuggestion: true,
+  aiAnnotatedAt: true,
 });
 
 export const insertTrendAnalysisSchema = createInsertSchema(trendAnalyses).omit({
