@@ -1,7 +1,7 @@
-import { db } from "./db";
-import { eq, desc, sql, and, inArray, arrayContains, getTableColumns } from "drizzle-orm";
+import { db, pool } from "./db";
+import { eq, desc, sql, and, inArray, arrayContains, getTableColumns, gte, lt, or, ilike } from "drizzle-orm";
 import {
-  sources, articles, trendAnalyses, trendSnapshots, chatMessages, chatSessions, briefings, knowledgeEntries, companyAnalyses, thoughtLeadership, slideDesigns, pendingKnowledge, enablementContent, articleDigests, productKnowledge, productFeatures, newsapiQueries, tlDocuments, processingJobs, knowledgeReviews, dashboardViews, competitors, trendWatchlist, crawlJobs, crawlPages, crawlEntries, briefs, feedTags,
+  sources, articles, trendAnalyses, trendSnapshots, chatMessages, chatSessions, briefings, knowledgeEntries, companyAnalyses, thoughtLeadership, slideDesigns, pendingKnowledge, enablementContent, articleDigests, productKnowledge, productFeatures, newsapiQueries, tlDocuments, processingJobs, knowledgeReviews, dashboardViews, competitors, trendWatchlist, crawlJobs, crawlPages, crawlEntries, briefs, feedTags, TAG_SURFACE_THRESHOLD,
   type Source, type InsertSource,
   type Article, type InsertArticle,
   type TrendAnalysis, type InsertTrendAnalysis,
@@ -31,6 +31,15 @@ import {
   type Brief, type InsertBrief,
   type FeedTag, type FeedTagStatus,
 } from "@shared/schema";
+
+export interface TagEnrichment {
+  name: string;
+  sources: string[];
+  count30d: number;
+  countPrev30d: number;
+  firstSeenAt: string | null;
+  lastSeenAt: string | null;
+}
 
 // List views (getArticles, getFilteredArticles) cap content at the pre-full-text length so
 // /api/articles payloads stay bounded; full content is served by single-article fetches
@@ -83,6 +92,12 @@ export interface IStorage {
   getFeedTags(status?: FeedTagStatus): Promise<FeedTag[]>;
   updateFeedTagStatus(id: number, status: FeedTagStatus): Promise<FeedTag | undefined>;
   getApprovedTagNames(): Promise<string[]>;
+  getSurfacedPendingTags(): Promise<FeedTag[]>;
+  countHiddenPendingTags(): Promise<number>;
+  getTagEnrichment(names: string[]): Promise<TagEnrichment[]>;
+  getTagHeadlines(names: string[], limitPerTag: number): Promise<Record<string, string[]>>;
+  cacheTagAnnotations(items: { name: string; summary: string; suggestion: string }[]): Promise<void>;
+  searchFeedTags(query: string): Promise<FeedTag[]>;
 
   getTrendAnalyses(limit?: number): Promise<TrendAnalysis[]>;
   createTrendAnalysis(analysis: InsertTrendAnalysis): Promise<TrendAnalysis>;
@@ -490,6 +505,87 @@ export class DatabaseStorage implements IStorage {
       .from(feedTags)
       .where(eq(feedTags.status, "approved"));
     return rows.map((r) => r.name).sort();
+  }
+
+  async getSurfacedPendingTags(): Promise<FeedTag[]> {
+    return db
+      .select()
+      .from(feedTags)
+      .where(and(eq(feedTags.status, "pending"), gte(feedTags.articleCount, TAG_SURFACE_THRESHOLD)))
+      .orderBy(desc(feedTags.articleCount));
+  }
+
+  async countHiddenPendingTags(): Promise<number> {
+    const [row] = await db
+      .select({ count: sql<number>`COUNT(*)::int` })
+      .from(feedTags)
+      .where(and(eq(feedTags.status, "pending"), lt(feedTags.articleCount, TAG_SURFACE_THRESHOLD)));
+    return row?.count ?? 0;
+  }
+
+  async getTagEnrichment(names: string[]): Promise<TagEnrichment[]> {
+    if (names.length === 0) return [];
+    const { rows } = await pool.query(
+      `SELECT t.tag AS name,
+              (array_agg(DISTINCT a.source_name) FILTER (WHERE a.source_name IS NOT NULL))[1:5] AS sources,
+              COUNT(*) FILTER (WHERE a.published_at >= NOW() - INTERVAL '30 days')::int AS count30d,
+              COUNT(*) FILTER (WHERE a.published_at >= NOW() - INTERVAL '60 days'
+                                 AND a.published_at <  NOW() - INTERVAL '30 days')::int AS count_prev30d,
+              MIN(a.created_at) AS first_seen_at,
+              MAX(a.created_at) AS last_seen_at
+       FROM articles a
+       CROSS JOIN LATERAL unnest(a.tags) AS t(tag)
+       WHERE a.tags && $1::text[] AND t.tag = ANY($1::text[])
+       GROUP BY t.tag`,
+      [names]
+    );
+    return rows.map((r: any) => ({
+      name: r.name,
+      sources: r.sources ?? [],
+      count30d: r.count30d,
+      countPrev30d: r.count_prev30d,
+      firstSeenAt: r.first_seen_at ? new Date(r.first_seen_at).toISOString() : null,
+      lastSeenAt: r.last_seen_at ? new Date(r.last_seen_at).toISOString() : null,
+    }));
+  }
+
+  async getTagHeadlines(names: string[], limitPerTag: number): Promise<Record<string, string[]>> {
+    if (names.length === 0) return {};
+    const { rows } = await pool.query(
+      `SELECT name, title FROM (
+         SELECT t.tag AS name, a.title,
+                ROW_NUMBER() OVER (PARTITION BY t.tag ORDER BY a.published_at DESC NULLS LAST) AS rn
+         FROM articles a
+         CROSS JOIN LATERAL unnest(a.tags) AS t(tag)
+         WHERE a.tags && $1::text[] AND t.tag = ANY($1::text[])
+       ) ranked
+       WHERE rn <= $2`,
+      [names, limitPerTag]
+    );
+    const result: Record<string, string[]> = {};
+    for (const row of rows as { name: string; title: string }[]) {
+      (result[row.name] ??= []).push(row.title);
+    }
+    return result;
+  }
+
+  async cacheTagAnnotations(items: { name: string; summary: string; suggestion: string }[]): Promise<void> {
+    for (const item of items) {
+      await db
+        .update(feedTags)
+        .set({ aiSummary: item.summary, aiSuggestion: item.suggestion, aiAnnotatedAt: new Date() })
+        .where(eq(feedTags.name, item.name));
+    }
+  }
+
+  async searchFeedTags(query: string): Promise<FeedTag[]> {
+    const pattern = `%${query}%`;
+    return db
+      .select()
+      .from(feedTags)
+      .where(or(ilike(feedTags.name, pattern), ilike(feedTags.displayName, pattern)))
+      .orderBy(desc(feedTags.articleCount))
+      .limit(50);
   }
 
   async searchArticles(query: string): Promise<Article[]> {
