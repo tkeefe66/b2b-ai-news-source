@@ -42,8 +42,9 @@ const categoryColors: Record<string, string> = {
   "Company Tracker": "bg-sky-50 text-sky-700 ring-1 ring-sky-600/10 dark:bg-sky-500/10 dark:text-sky-400 dark:ring-sky-400/20",
 };
 
-function ArticleCard({ article, onDismiss }: { article: Article; onDismiss: (id: number) => void }) {
+function ArticleCard({ article, onDismiss, approvedTags }: { article: Article; onDismiss: (id: number) => void; approvedTags: Set<string> }) {
   const catClass = categoryColors[article.category || ""] || "bg-muted text-muted-foreground";
+  const tagChips = (article.tags ?? []).filter((t) => approvedTags.has(t)).slice(0, 4);
 
   return (
     <div className="group relative">
@@ -69,6 +70,11 @@ function ArticleCard({ article, onDismiss }: { article: Article; onDismiss: (id:
                       {article.sourceName}
                     </span>
                   )}
+                  {tagChips.map((t) => (
+                    <Badge key={t} variant="outline" className="text-xs" data-testid={`badge-tag-${t}`}>
+                      {t}
+                    </Badge>
+                  ))}
                 </div>
                 <h3 className="text-[13px] font-semibold leading-snug line-clamp-2 tracking-tight" data-testid={`text-title-${article.id}`}>
                   {article.title}
@@ -138,6 +144,7 @@ export default function NewsFeed() {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [selectedTag, setSelectedTag] = useState<string>("all");
   const [selectedSource, setSelectedSource] = useState<string>("all");
   const [selectedDateRange, setSelectedDateRange] = useState<string>("all");
   const [customDateRange, setCustomDateRange] = useState<DateRange | undefined>();
@@ -175,7 +182,7 @@ export default function NewsFeed() {
     },
   });
 
-  const filtersQuery = useQuery<{ categories: string[]; sources: string[]; sourcesByCategory: Record<string, string[]> }>({
+  const filtersQuery = useQuery<{ categories: string[]; sources: string[]; sourcesByCategory: Record<string, string[]>; tags: string[] }>({
     queryKey: ["/api/articles/filters"],
     staleTime: 300000,
   });
@@ -201,6 +208,7 @@ export default function NewsFeed() {
 
   const hasActiveFilters = effectiveSearch.length > 0 ||
     selectedCategory !== "all" ||
+    selectedTag !== "all" ||
     selectedSource !== "all" ||
     selectedDateRange !== "all";
 
@@ -213,6 +221,7 @@ export default function NewsFeed() {
       if (selectedCategory !== "all") params.set("category", selectedCategory);
       params.set("excludeCategory", "Company Tracker");
     }
+    if (selectedTag !== "all") params.set("tag", selectedTag);
     if (selectedSource !== "all") params.set("source", selectedSource);
     if (selectedDateRange === "custom" && customDateRange?.from && customDateRange?.to) {
       params.set("dateRange", "custom");
@@ -223,7 +232,7 @@ export default function NewsFeed() {
     }
     params.set("limit", "50");
     return params.toString();
-  }, [effectiveSearch, selectedCategory, selectedSource, selectedDateRange, customDateRange, activeTab]);
+  }, [effectiveSearch, selectedCategory, selectedTag, selectedSource, selectedDateRange, customDateRange, activeTab]);
 
   const articlesQuery = useQuery<{ articles: Article[]; total: number }>({
     queryKey: ["/api/articles", queryParams],
@@ -323,6 +332,7 @@ export default function NewsFeed() {
 
   const activeFilterCount = [
     selectedCategory !== "all",
+    selectedTag !== "all",
     selectedSource !== "all",
     selectedDateRange !== "all",
   ].filter(Boolean).length;
@@ -331,10 +341,13 @@ export default function NewsFeed() {
     setSearchQuery("");
     setDebouncedQuery("");
     setSelectedCategory("all");
+    setSelectedTag("all");
     setSelectedSource("all");
     setSelectedDateRange("all");
     setCustomDateRange(undefined);
   };
+
+  const approvedTags = useMemo(() => new Set(filtersQuery.data?.tags ?? []), [filtersQuery.data]);
 
   const articles = articlesQuery.data?.articles || [];
   const totalCount = articlesQuery.data?.total || 0;
@@ -433,6 +446,19 @@ export default function NewsFeed() {
                 <SelectItem value="all">All Categories</SelectItem>
                 {tabCategories.map((cat) => (
                   <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          {(filtersQuery.data?.tags?.length ?? 0) > 0 && (
+            <Select value={selectedTag} onValueChange={setSelectedTag}>
+              <SelectTrigger className="h-8 w-auto min-w-[110px] text-xs" data-testid="select-filter-tag">
+                <SelectValue placeholder="Tag" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Tags</SelectItem>
+                {filtersQuery.data!.tags.map((tag) => (
+                  <SelectItem key={tag} value={tag}>{tag}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -572,7 +598,7 @@ export default function NewsFeed() {
         ) : (
           <div className="grid gap-2 md:gap-3">
             {articles.map((article) => (
-              <ArticleCard key={article.id} article={article} onDismiss={(id) => dismissMutation.mutate(id)} />
+              <ArticleCard key={article.id} article={article} onDismiss={(id) => dismissMutation.mutate(id)} approvedTags={approvedTags} />
             ))}
             {hasActiveFilters && articles.length === 0 && (
               <div className="text-center py-8">
