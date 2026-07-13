@@ -35,10 +35,11 @@ import {
 // List views (getArticles, getFilteredArticles) cap content at the pre-full-text length so
 // /api/articles payloads stay bounded; full content is served by single-article fetches
 // (getArticle, getArticlesByIds), which select all columns unmodified.
-const { content: _fullContent, ...articleListColumns } = getTableColumns(articles);
+const { content: _fullContent, searchVector: _searchVector, ...articleListColumns } = getTableColumns(articles);
 const ARTICLE_LIST_SELECTION = {
   ...articleListColumns,
   content: sql<string | null>`LEFT(${articles.content}, 2000)`.as("content"),
+  searchVector: sql<string | null>`NULL`.as("search_vector"),
 };
 
 export interface ArticleFilters {

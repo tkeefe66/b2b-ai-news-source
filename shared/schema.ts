@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, serial, integer, timestamp, boolean, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, serial, integer, timestamp, boolean, uniqueIndex, index, unique, date, customType } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -23,6 +23,15 @@ export const sources = pgTable("sources", {
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 
+// tsvector column type for full-text search. The column and its GIN index are
+// populated at runtime by server/embeddings.ts; they are modeled here so
+// drizzle-kit push does not propose dropping them.
+const tsvector = customType<{ data: string }>({
+  dataType() {
+    return "tsvector";
+  },
+});
+
 export const articles = pgTable("articles", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
@@ -41,8 +50,21 @@ export const articles = pgTable("articles", {
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
   guid: text("guid"),
   tags: text("tags").array(),
+  searchVector: tsvector("search_vector"),
 }, (t) => ({
   sourceGuidIdx: uniqueIndex("articles_source_guid_idx").on(t.sourceId, t.guid),
+  searchIdx: index("articles_search_idx").using("gin", t.searchVector),
+}));
+
+// Runtime table used via raw SQL in server/rss.ts (fetch-failure tracking and
+// 3-day auto-removal). Modeled here so drizzle-kit push does not drop it.
+export const sourceFetchFailures = pgTable("source_fetch_failures", {
+  id: serial("id").primaryKey(),
+  sourceId: integer("source_id").notNull().references(() => sources.id, { onDelete: "cascade" }),
+  failedDate: date("failed_date").default(sql`CURRENT_DATE`).notNull(),
+  errorMessage: text("error_message"),
+}, (t) => ({
+  sourceDateUnique: unique("source_fetch_failures_source_id_failed_date_key").on(t.sourceId, t.failedDate),
 }));
 
 export const FEED_TAG_STATUSES = ["pending", "approved", "rejected", "blocked"] as const;
@@ -106,6 +128,7 @@ export const insertSourceSchema = createInsertSchema(sources).omit({
 export const insertArticleSchema = createInsertSchema(articles).omit({
   id: true,
   createdAt: true,
+  searchVector: true,
 });
 
 export const insertFeedTagSchema = createInsertSchema(feedTags).omit({
