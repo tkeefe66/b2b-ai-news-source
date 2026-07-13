@@ -44,7 +44,7 @@ function Router() {
       <Switch>
         <Route path="/" component={NewsFeed} />
         <Route path="/briefing">
-          <Redirect to="/briefings?tab=on-demand" replace />
+          <Redirect to="/briefings" replace />
         </Route>
         <Route path="/morning-brief">
           <Redirect to="/briefings?tab=morning-brief" replace />

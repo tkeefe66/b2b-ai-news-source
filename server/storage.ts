@@ -1,14 +1,13 @@
 import { db, pool } from "./db";
 import { eq, desc, sql, and, inArray, arrayContains, getTableColumns, gte, lt, or, ilike } from "drizzle-orm";
 import {
-  sources, articles, trendAnalyses, trendSnapshots, chatMessages, chatSessions, briefings, knowledgeEntries, companyAnalyses, thoughtLeadership, slideDesigns, pendingKnowledge, enablementContent, articleDigests, productKnowledge, productFeatures, newsapiQueries, tlDocuments, processingJobs, knowledgeReviews, dashboardViews, competitors, trendWatchlist, crawlJobs, crawlPages, crawlEntries, briefs, feedTags, TAG_SURFACE_THRESHOLD,
+  sources, articles, trendAnalyses, trendSnapshots, chatMessages, chatSessions, knowledgeEntries, companyAnalyses, thoughtLeadership, slideDesigns, pendingKnowledge, enablementContent, articleDigests, productKnowledge, productFeatures, newsapiQueries, tlDocuments, processingJobs, knowledgeReviews, dashboardViews, competitors, trendWatchlist, crawlJobs, crawlPages, crawlEntries, briefs, feedTags, TAG_SURFACE_THRESHOLD,
   type Source, type InsertSource,
   type Article, type InsertArticle,
   type TrendAnalysis, type InsertTrendAnalysis,
   type TrendSnapshot, type InsertTrendSnapshot,
   type ChatSession, type InsertChatSession,
   type ChatMessage, type InsertChatMessage,
-  type Briefing, type InsertBriefing,
   type KnowledgeEntry, type InsertKnowledgeEntry,
   type CompanyAnalysis, type InsertCompanyAnalysis,
   type ThoughtLeadership, type InsertThoughtLeadership,
@@ -124,12 +123,6 @@ export interface IStorage {
   createChatMessage(message: InsertChatMessage): Promise<ChatMessage>;
   clearChatMessages(): Promise<void>;
   clearChatMessagesBySession(sessionId: number): Promise<void>;
-
-  getBriefings(limit?: number): Promise<Briefing[]>;
-  getBriefing(id: number): Promise<Briefing | undefined>;
-  getLatestBriefing(): Promise<Briefing | undefined>;
-  createBriefing(briefing: InsertBriefing): Promise<Briefing>;
-  deleteBriefing(id: number): Promise<boolean>;
 
   // Morning Brief
   getBriefs(limit?: number): Promise<Brief[]>;
@@ -693,30 +686,6 @@ export class DatabaseStorage implements IStorage {
 
   async clearChatMessagesBySession(sessionId: number): Promise<void> {
     await db.delete(chatMessages).where(eq(chatMessages.sessionId, sessionId));
-  }
-
-  async getBriefings(limit = 50): Promise<Briefing[]> {
-    return db.select().from(briefings).orderBy(desc(briefings.createdAt)).limit(limit);
-  }
-
-  async getBriefing(id: number): Promise<Briefing | undefined> {
-    const [briefing] = await db.select().from(briefings).where(eq(briefings.id, id));
-    return briefing;
-  }
-
-  async getLatestBriefing(): Promise<Briefing | undefined> {
-    const [latest] = await db.select().from(briefings).orderBy(desc(briefings.createdAt)).limit(1);
-    return latest;
-  }
-
-  async createBriefing(briefing: InsertBriefing): Promise<Briefing> {
-    const [created] = await db.insert(briefings).values(briefing).returning();
-    return created;
-  }
-
-  async deleteBriefing(id: number): Promise<boolean> {
-    const result = await db.delete(briefings).where(eq(briefings.id, id)).returning();
-    return result.length > 0;
   }
 
   // Morning Brief

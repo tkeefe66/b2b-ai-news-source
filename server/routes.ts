@@ -2801,11 +2801,10 @@ ${NO_DASH_RULE}`
 
       await storage.createChatMessage({ role: "user", content: message, sessionId: sessionId || null });
 
-      const [stats, relevantArticles, latestTrend, latestBriefing, recentTrends, chatHistory, analystCompanyNamesRows, thoughtLeadershipEntries] = await Promise.all([
+      const [stats, relevantArticles, latestTrend, recentTrends, chatHistory, analystCompanyNamesRows, thoughtLeadershipEntries] = await Promise.all([
         getSearchStats(),
         searchRelevantArticles(message, 40),
         storage.getLatestTrendAnalysis(),
-        storage.getLatestBriefing(),
         storage.getTrendAnalyses(3),
         sessionId ? storage.getChatMessagesBySession(sessionId) : storage.getChatMessages(20),
         pool.query("SELECT id, company_name, ticker FROM company_analyses ORDER BY created_at DESC LIMIT 50"),
@@ -2855,15 +2854,6 @@ ${vd.categoryBreakdown.map((c: any) => `- ${c.category}: ${c.percentage}% (${c.a
         for (const t of recentTrends.slice(1)) {
           trendContext += `\n- "${t.title}" (${new Date(t.createdAt).toLocaleDateString()}): Key themes: ${t.keyThemes.join(", ")}. ${t.summary.substring(0, 300)}...`;
         }
-      }
-
-      let briefingContext = "";
-      if (latestBriefing) {
-        briefingContext = `\n\n=== LATEST DAILY BRIEFING (${latestBriefing.period}, generated ${new Date(latestBriefing.createdAt).toLocaleDateString()}) ===
-Title: ${latestBriefing.title}
-Executive Summary: ${latestBriefing.executiveSummary}
-Articles Covered: ${latestBriefing.articleCount}
-Sections: ${latestBriefing.sections.substring(0, 2000)}`;
       }
 
       const analystConversationText = [
@@ -2928,13 +2918,12 @@ Opportunities: ${tl.opportunities.substring(0, 1000)}`).join("\n")}`;
 
 1. NEWS FEED: A database of ${stats.total} total articles from MarTech/SalesTech sources. The ${articleCount} most relevant to the user's query are provided below.
 2. TREND ANALYSES: AI-generated trend reports that synthesize all articles into key themes, emerging signals, company mentions, and momentum data.
-3. DAILY BRIEFINGS: Executive intelligence briefings summarizing recent developments.
-4. COMPANY ANALYSES: In-depth AI-generated research on specific public companies including financial outlook, strategic direction, growth signals, risks, and Demandbase opportunity/competitive assessments.
-5. THOUGHT LEADERSHIP: AI-generated analyses identifying thought leadership opportunities, content angles, and strategic positioning recommendations based on current market dynamics.
+3. COMPANY ANALYSES: In-depth AI-generated research on specific public companies including financial outlook, strategic direction, growth signals, risks, and Demandbase opportunity/competitive assessments.
+4. THOUGHT LEADERSHIP: AI-generated analyses identifying thought leadership opportunities, content angles, and strategic positioning recommendations based on current market dynamics.
 
 You can answer questions about:
 - What's happening NOW in the market (from the news feed)
-- WHERE the market has been and key patterns (from trend analyses and briefings)
+- WHERE the market has been and key patterns (from trend analyses)
 - WHERE the market is heading next (from emerging signals, trend momentum, and your analysis)
 - Specific companies, technologies, or themes across all data sources
 - Company-specific intelligence: financial health, strategy, growth signals, risks, and whether they are a Demandbase opportunity or competitor (from company analyses)
@@ -2944,13 +2933,11 @@ You can answer questions about:
 RELEVANT ARTICLES FROM NEWS FEED:
 ${articleContext}
 ${trendContext}
-${briefingContext}
 ${companyAnalysisContext}
 ${thoughtLeadershipContext}
 
 Guidelines:
 - When discussing trends, reference the trend analysis data — cite specific emerging signals, momentum scores, and company mentions
-- When discussing briefings, reference the executive summary and key sections
 - When discussing specific companies, reference the company analysis data if available — cite financial outlook, strategic direction, and Demandbase opportunity assessment
 - When discussing thought leadership or content strategy, reference the thought leadership analyses — cite specific opportunities, content angles, and positioning recommendations
 - Reference specific articles and sources when relevant to the question
@@ -3702,39 +3689,6 @@ ${NO_DASH_RULE}`}`;
     }
   });
 
-  app.get("/api/briefings", async (_req, res) => {
-    try {
-      const list = await storage.getBriefings(10);
-      res.json(list);
-    } catch (err) {
-      console.error("Error fetching briefings:", err);
-      res.status(500).json({ error: "Failed to fetch briefings" });
-    }
-  });
-
-  app.delete("/api/briefings/:id", async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      if (isNaN(id)) return res.status(400).json({ error: "Invalid briefing ID" });
-      const deleted = await storage.deleteBriefing(id);
-      if (!deleted) return res.status(404).json({ error: "Briefing not found" });
-      res.json({ success: true });
-    } catch (err) {
-      console.error("Error deleting briefing:", err);
-      res.status(500).json({ error: "Failed to delete briefing" });
-    }
-  });
-
-  app.get("/api/briefings/latest", async (_req, res) => {
-    try {
-      const latest = await storage.getLatestBriefing();
-      res.json(latest || null);
-    } catch (err) {
-      console.error("Error fetching latest briefing:", err);
-      res.status(500).json({ error: "Failed to fetch latest briefing" });
-    }
-  });
-
   // Morning Brief (push email)
   app.post("/api/brief/send-now", async (_req, res) => {
     try {
@@ -3767,339 +3721,6 @@ ${NO_DASH_RULE}`}`;
     } catch (err) {
       console.error("Error fetching brief:", err);
       res.status(500).json({ error: "Failed to fetch brief" });
-    }
-  });
-
-  app.post("/api/briefings/generate", async (req, res) => {
-    try {
-      const period = (req.body.period as string) || "week";
-      const customFrom = req.body.dateFrom as string | undefined;
-      const customTo = req.body.dateTo as string | undefined;
-      const isCustom = period === "custom" && customFrom && customTo;
-      let days: number;
-      let periodLabel: string;
-      let endDate: Date;
-      let startDate: Date;
-      if (isCustom) {
-        startDate = new Date(customFrom);
-        endDate = new Date(customTo);
-        days = Math.max(1, Math.ceil((endDate.getTime() - startDate.getTime()) / 86400000) + 1);
-        periodLabel = "Custom Range";
-      } else {
-        days = period === "today" ? 1 : period === "3days" ? 3 : 7;
-        periodLabel = period === "today" ? "Today" : period === "3days" ? "Last 3 Days" : "Last 7 Days";
-        endDate = new Date();
-        startDate = new Date();
-        startDate.setDate(endDate.getDate() - (days - 1));
-      }
-      const fmt = (d: Date) => `${d.getMonth() + 1}/${d.getDate()}/${String(d.getFullYear()).slice(2)}`;
-      const dateRangeTitle = days === 1 ? fmt(endDate) : `${fmt(startDate)} - ${fmt(endDate)}`;
-
-      const grouped = isCustom
-        ? await storage.getArticlesByCategoryInRange(startDate, endDate)
-        : await storage.getRecentArticlesByCategory(days);
-      const totalArticles = Object.values(grouped).reduce((sum, arr) => sum + arr.length, 0);
-
-      if (totalArticles === 0) {
-        return res.status(400).json({ error: "No recent articles available for this time period" });
-      }
-
-      res.writeHead(200, {
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
-        Connection: "keep-alive",
-      });
-
-      let clientDisconnected = false;
-      req.on("close", () => { clientDisconnected = true; });
-
-      const categorySummaries = Object.entries(grouped).map(([cat, arts]) => {
-        const top = arts.slice(0, 15);
-        const lines = top.map(a =>
-          `  - [${a.title}](${a.link}) (${a.sourceName || "Unknown"}, ${a.publishedAt ? new Date(a.publishedAt).toLocaleDateString() : "recent"}): ${a.description?.substring(0, 300) || "No description"}`
-        ).join("\n");
-        return `### ${cat} (${arts.length} articles)\n${lines}`;
-      }).join("\n\n");
-
-      const stream = anthropic.messages.stream({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 6000,
-        system: `You are a senior analyst creating an executive intelligence briefing for a thought leader in B2B Marketing and Sales Technology. This person needs to stay ahead of trends, understand market dynamics, and have talking points ready.
-
-Write a comprehensive briefing covering ${periodLabel} (${totalArticles} articles across ${Object.keys(grouped).length} categories).
-
-Structure your response EXACTLY like this:
-
-# Executive Briefing: ${dateRangeTitle}
-
-## The Big Picture
-Write 2-3 paragraphs that a busy executive can read in 60 seconds. What are the most important things happening right now? What should they pay attention to? What's the narrative arc across these developments?
-
-## Key Developments by Category
-
-For EACH category below, write a focused section with:
-- A bold one-line verdict on what's happening in that space
-- 2-3 specific developments with source attribution
-- Why it matters for B2B marketers and sales leaders
-
-## Market Movers & Deals
-Highlight any acquisitions, funding rounds, IPO activity, stock movements, or partnership announcements. If none exist in the data, skip this section.
-
-## Emerging Themes & Signals
-Identify 3-5 cross-cutting themes or weak signals that span multiple categories. These are the "connect the dots" insights that make someone a thought leader.
-
-## Thought Leader Talking Points
-Provide 3-4 provocative, well-informed opinions or observations that would make great LinkedIn posts, keynote talking points, or boardroom commentary. Make them specific and backed by the data.
-
-Be specific and cite sources. IMPORTANT: Every time you mention or reference an article, you MUST use the exact markdown link format [Article Title](url) from the input data so readers can click through to the original articles. Do NOT use plain text source names like [Source]; always use the full clickable link. Avoid generic filler. Write in a sharp, analytical tone.
-${NO_DASH_RULE}`,
-        messages: [{ role: "user", content: `Generate the executive briefing from these articles:\n\n${categorySummaries}` }],
-      });
-
-      let fullContent = "";
-
-      for await (const event of stream) {
-        if (clientDisconnected) break;
-        if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
-          const text = event.delta.text;
-          fullContent += text;
-          res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
-        }
-      }
-
-      if (!clientDisconnected) {
-        const saved = await storage.createBriefing({
-          title: dateRangeTitle,
-          period: periodLabel,
-          executiveSummary: fullContent.substring(0, 500),
-          sections: fullContent,
-          articleCount: totalArticles,
-        });
-
-        res.write(`data: ${JSON.stringify({ done: true, briefingId: saved.id })}\n\n`);
-        res.write("data: [DONE]\n\n");
-        res.end();
-      }
-    } catch (err) {
-      console.error("Error generating briefing:", err);
-      if (!res.headersSent) {
-        res.status(500).json({ error: "Failed to generate briefing" });
-      } else {
-        res.write(`data: ${JSON.stringify({ error: "Failed to generate briefing" })}\n\n`);
-        res.end();
-      }
-    }
-  });
-
-  const compareSchema = z.object({
-    briefingIdA: z.number().int().positive(),
-    briefingIdB: z.number().int().positive(),
-  });
-
-  app.post("/api/briefings/compare", async (req, res) => {
-    try {
-      const parsed = compareSchema.safeParse(req.body);
-      if (!parsed.success) {
-        return res.status(400).json({ error: "Two valid briefing IDs are required" });
-      }
-      const { briefingIdA, briefingIdB } = parsed.data;
-
-      const [briefingA, briefingB] = await Promise.all([
-        storage.getBriefing(briefingIdA),
-        storage.getBriefing(briefingIdB),
-      ]);
-
-      if (!briefingA || !briefingB) {
-        return res.status(404).json({ error: "One or both briefings not found" });
-      }
-
-      const older = new Date(briefingA.createdAt) < new Date(briefingB.createdAt) ? briefingA : briefingB;
-      const newer = older.id === briefingA.id ? briefingB : briefingA;
-
-      res.writeHead(200, {
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
-        Connection: "keep-alive",
-      });
-
-      let clientDisconnected = false;
-      req.on("close", () => { clientDisconnected = true; });
-
-      const stream = anthropic.messages.stream({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 5000,
-        system: `You are a senior B2B MarTech analyst comparing two intelligence briefings to identify what changed. Write a sharp, executive-level change analysis.
-
-Structure your response as:
-
-# Change Analysis: ${older.period} → ${newer.period}
-
-## Executive Summary of Changes
-2-3 paragraphs highlighting the most significant shifts, new developments, and evolving narratives between these two periods.
-
-## What's New
-Major developments, announcements, or themes that appeared in the newer briefing but were absent from the older one.
-
-## What's Shifted
-Trends or themes present in both briefings that have evolved, intensified, or changed direction.
-
-## What's Faded
-Topics or themes that were prominent in the earlier briefing but have diminished or disappeared.
-
-## Strategic Implications
-What do these changes mean for B2B marketing and sales leaders? What should they be doing differently?
-
-Be specific, reference actual content from both briefings, and avoid generic statements.
-${NO_DASH_RULE}`,
-        messages: [{ role: "user", content: `Compare these two briefings:\n\n--- EARLIER BRIEFING (${older.period}, generated ${new Date(older.createdAt).toLocaleDateString()}, ${older.articleCount} articles) ---\n${older.sections}\n\n--- LATER BRIEFING (${newer.period}, generated ${new Date(newer.createdAt).toLocaleDateString()}, ${newer.articleCount} articles) ---\n${newer.sections}` }],
-      });
-
-      let fullContent = "";
-      for await (const event of stream) {
-        if (clientDisconnected) break;
-        if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
-          const text = event.delta.text;
-          fullContent += text;
-          res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
-        }
-      }
-
-      if (!clientDisconnected) {
-        res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
-        res.write("data: [DONE]\n\n");
-        res.end();
-      }
-    } catch (err) {
-      console.error("Error comparing briefings:", err);
-      if (!res.headersSent) {
-        res.status(500).json({ error: "Failed to compare briefings" });
-      } else {
-        res.write(`data: ${JSON.stringify({ error: "Failed to compare briefings" })}\n\n`);
-        res.end();
-      }
-    }
-  });
-
-  const timeMachineSchema = z.object({
-    startDate: z.string().refine(d => !isNaN(new Date(d).getTime()), "Invalid start date"),
-    endDate: z.string().refine(d => !isNaN(new Date(d).getTime()), "Invalid end date"),
-    category: z.string().optional(),
-    topic: z.string().optional(),
-  });
-
-  app.post("/api/briefings/time-machine", async (req, res) => {
-    try {
-      const parsed = timeMachineSchema.safeParse(req.body);
-      if (!parsed.success) {
-        return res.status(400).json({ error: "Valid start and end dates are required" });
-      }
-
-      const start = new Date(parsed.data.startDate);
-      const end = new Date(parsed.data.endDate);
-      const category = parsed.data.category;
-      const topic = parsed.data.topic;
-
-      const allArticles = await storage.getArticlesByDateRange(start, end, category || undefined);
-
-      let relevantArticles = allArticles;
-      if (topic) {
-        const topicLower = topic.toLowerCase();
-        const keywords = topicLower.split(/\s+/);
-        relevantArticles = allArticles.filter(a => {
-          const text = `${a.title} ${a.description || ""} ${a.content || ""}`.toLowerCase();
-          return keywords.some(kw => text.includes(kw));
-        });
-      }
-
-      if (relevantArticles.length === 0) {
-        return res.status(400).json({ error: "No articles found for this time period and filter" });
-      }
-
-      res.writeHead(200, {
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
-        Connection: "keep-alive",
-      });
-
-      let clientDisconnected = false;
-      req.on("close", () => { clientDisconnected = true; });
-
-      const grouped: Record<string, typeof relevantArticles> = {};
-      for (const a of relevantArticles) {
-        const cat = a.category || "General";
-        if (!grouped[cat]) grouped[cat] = [];
-        grouped[cat].push(a);
-      }
-
-      const articleSummaries = Object.entries(grouped).map(([cat, arts]) => {
-        const top = arts.slice(0, 20);
-        const lines = top.map(a =>
-          `  - [${a.title}](${a.link}) (${a.sourceName || "Unknown"}, ${a.publishedAt ? new Date(a.publishedAt).toLocaleDateString() : "N/A"}): ${a.description?.substring(0, 300) || "No description"}`
-        ).join("\n");
-        return `### ${cat} (${arts.length} articles)\n${lines}`;
-      }).join("\n\n");
-
-      const dateRange = `${start.toLocaleDateString()} to ${end.toLocaleDateString()}`;
-      const topicClause = topic ? ` focused on "${topic}"` : "";
-      const categoryClause = category ? ` in the ${category} category` : "";
-
-      const stream = anthropic.messages.stream({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 6000,
-        system: `You are a senior analyst creating a deep-dive retrospective for a thought leader in B2B Marketing and Sales Technology.
-
-Analyze ${relevantArticles.length} articles from ${dateRange}${categoryClause}${topicClause}.
-
-Structure your response as:
-
-# Intelligence Report: ${dateRange}
-${topic ? `## Focus: ${topic}\n` : ""}
-## Period Overview
-A comprehensive narrative of what happened during this period. What were the defining moments? What trends emerged, accelerated, or reversed?
-
-## Timeline of Key Events
-List the most significant developments chronologically, with dates and sources.
-
-## Major Themes & Patterns
-Identify 4-6 major themes with evidence from the articles. For each theme:
-- What happened
-- Why it matters
-- How it connects to the broader B2B MarTech/SalesTech landscape
-
-## Market & Competitive Dynamics
-How did the competitive landscape shift? Any consolidation, new entrants, pivots, or strategic moves?
-
-## Looking Back: What It Means Now
-With the benefit of hindsight, what were the most consequential developments from this period? What lessons should thought leaders take away?
-
-Be analytical, specific, and cite sources using markdown links like [Article Title](url) so readers can click through to the original articles. Write as if briefing a board of advisors.
-${NO_DASH_RULE}`,
-        messages: [{ role: "user", content: `Generate the retrospective analysis from these articles:\n\n${articleSummaries}` }],
-      });
-
-      let fullContent = "";
-      for await (const event of stream) {
-        if (clientDisconnected) break;
-        if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
-          const text = event.delta.text;
-          fullContent += text;
-          res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
-        }
-      }
-
-      if (!clientDisconnected) {
-        res.write(`data: ${JSON.stringify({ done: true, articleCount: relevantArticles.length })}\n\n`);
-        res.write("data: [DONE]\n\n");
-        res.end();
-      }
-    } catch (err) {
-      console.error("Error in time machine:", err);
-      if (!res.headersSent) {
-        res.status(500).json({ error: "Failed to generate time analysis" });
-      } else {
-        res.write(`data: ${JSON.stringify({ error: "Failed to generate analysis" })}\n\n`);
-        res.end();
-      }
     }
   });
 

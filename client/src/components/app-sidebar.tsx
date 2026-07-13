@@ -32,7 +32,7 @@ export const navGroups: { label: string; items: NavItem[] }[] = [
     label: "Scan",
     items: [
       { title: "News Feed", url: "/", icon: Newspaper, description: "Latest articles from your sources" },
-      { title: "Briefings", url: "/briefings", icon: Mail, description: "Morning email digest, on-demand summaries, and deep AI reports" },
+      { title: "Briefings", url: "/briefings", icon: Mail, description: "Morning email digest and deep AI reports" },
       { title: "Trends", url: "/trends", icon: BarChart3, description: "AI trend snapshots, watchlist, and competitive intelligence" },
     ],
   },

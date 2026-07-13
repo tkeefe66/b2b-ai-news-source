@@ -156,16 +156,6 @@ export const insertTrendSnapshotSchema = createInsertSchema(trendSnapshots).omit
   createdAt: true,
 });
 
-export const briefings = pgTable("briefings", {
-  id: serial("id").primaryKey(),
-  title: text("title").notNull(),
-  period: text("period").notNull(),
-  executiveSummary: text("executive_summary").notNull(),
-  sections: text("sections").notNull(),
-  articleCount: integer("article_count").notNull(),
-  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
-});
-
 export const insertChatSessionSchema = createInsertSchema(chatSessions).omit({
   id: true,
   createdAt: true,
@@ -173,11 +163,6 @@ export const insertChatSessionSchema = createInsertSchema(chatSessions).omit({
 });
 
 export const insertChatMessageSchema = createInsertSchema(chatMessages).omit({
-  id: true,
-  createdAt: true,
-});
-
-export const insertBriefingSchema = createInsertSchema(briefings).omit({
   id: true,
   createdAt: true,
 });
@@ -213,8 +198,6 @@ export type ChatSession = typeof chatSessions.$inferSelect;
 export type InsertChatSession = z.infer<typeof insertChatSessionSchema>;
 export type ChatMessage = typeof chatMessages.$inferSelect;
 export type InsertChatMessage = z.infer<typeof insertChatMessageSchema>;
-export type Briefing = typeof briefings.$inferSelect;
-export type InsertBriefing = z.infer<typeof insertBriefingSchema>;
 export type KnowledgeEntry = typeof knowledgeEntries.$inferSelect;
 export type InsertKnowledgeEntry = z.infer<typeof insertKnowledgeEntrySchema>;
 

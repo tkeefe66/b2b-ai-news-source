@@ -30,7 +30,7 @@ function slugify(title: string) {
 // Extra search terms for nav items that absorbed old, now-removed routes —
 // keeps muscle-memory searches (e.g. "morning brief") hitting the merged entry.
 const EXTRA_SEARCH_TERMS: Record<string, string> = {
-  "/briefings": "morning brief daily briefing email digest reports",
+  "/briefings": "morning brief email digest reports",
 };
 
 export function CommandPalette() {
