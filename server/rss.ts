@@ -2,6 +2,7 @@ import RSSParser from "rss-parser";
 import { storage } from "./storage";
 import { pool } from "./db";
 import type { InsertArticle } from "@shared/schema";
+import { mapFeedItem, type FeedItemInput } from "./ingest";
 
 const parser = new RSSParser({
   timeout: 10000,
@@ -59,14 +60,30 @@ export async function fetchFeedArticles(sourceId: number, feedUrl: string, sourc
     const feed = await parser.parseURL(feedUrl);
     for (const item of feed.items.slice(0, 20)) {
       if (!item.link || !item.title) continue;
-      const existing = await storage.getArticleByLink(item.link);
-      if (existing) continue;
+
+      const mapped = mapFeedItem(item as FeedItemInput);
+
+      const tagStatuses = await storage.upsertFeedTags(mapped.tags);
+      if (Object.values(tagStatuses).includes("blocked")) {
+        continue; // article carries an admin-blocked tag (e.g. "sponsored")
+      }
+
+      let existing = mapped.guid ? await storage.getArticleByGuid(sourceId, mapped.guid) : undefined;
+      if (!existing) existing = await storage.getArticleByLink(item.link);
+      if (existing) {
+        if (mapped.guid && !existing.guid) {
+          await storage.setArticleGuid(existing.id, mapped.guid);
+        }
+        continue;
+      }
 
       const article: InsertArticle = {
         title: item.title,
         link: item.link,
-        description: item.contentSnippet || item.content?.substring(0, 500) || null,
-        content: item.content?.substring(0, 2000) || null,
+        guid: mapped.guid,
+        tags: mapped.tags.map((t) => t.name),
+        description: mapped.description,
+        content: mapped.content,
         author: item.creator || item.author || null,
         publishedAt: item.pubDate ? new Date(item.pubDate) : new Date(),
         sourceId,
@@ -76,8 +93,14 @@ export async function fetchFeedArticles(sourceId: number, feedUrl: string, sourc
         isRead: false,
       };
 
-      await storage.createArticle(article);
-      added++;
+      try {
+        await storage.createArticle(article);
+        added++;
+      } catch (err: any) {
+        const pgCode = err?.code ?? err?.cause?.code;
+        if (pgCode === "23505") continue; // unique-index race: another fetch inserted it first
+        throw err;
+      }
     }
     await storage.updateSourceLastFetched(sourceId);
     await clearFetchFailures(sourceId);
