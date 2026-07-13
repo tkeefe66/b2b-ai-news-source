@@ -96,6 +96,7 @@ export async function fetchFeedArticles(sourceId: number, feedUrl: string, sourc
       try {
         await storage.createArticle(article);
         added++;
+        if (mapped.tags.length) await storage.incrementTagCounts(mapped.tags.map((t) => t.name));
       } catch (err: any) {
         const pgCode = err?.code ?? err?.cause?.code;
         if (pgCode === "23505") continue; // unique-index race: another fetch inserted it first

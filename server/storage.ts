@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { eq, desc, sql, and, inArray, arrayContains } from "drizzle-orm";
+import { eq, desc, sql, and, inArray, arrayContains, getTableColumns } from "drizzle-orm";
 import {
   sources, articles, trendAnalyses, trendSnapshots, chatMessages, chatSessions, briefings, knowledgeEntries, companyAnalyses, thoughtLeadership, slideDesigns, pendingKnowledge, enablementContent, articleDigests, productKnowledge, productFeatures, newsapiQueries, tlDocuments, processingJobs, knowledgeReviews, dashboardViews, competitors, trendWatchlist, crawlJobs, crawlPages, crawlEntries, briefs, feedTags,
   type Source, type InsertSource,
@@ -31,6 +31,15 @@ import {
   type Brief, type InsertBrief,
   type FeedTag, type FeedTagStatus,
 } from "@shared/schema";
+
+// List views (getArticles, getFilteredArticles) cap content at the pre-full-text length so
+// /api/articles payloads stay bounded; full content is served by single-article fetches
+// (getArticle, getArticlesByIds), which select all columns unmodified.
+const { content: _fullContent, ...articleListColumns } = getTableColumns(articles);
+const ARTICLE_LIST_SELECTION = {
+  ...articleListColumns,
+  content: sql<string | null>`LEFT(${articles.content}, 2000)`.as("content"),
+};
 
 export interface ArticleFilters {
   search?: string;
@@ -69,6 +78,7 @@ export interface IStorage {
   getSourcesByCategory(): Promise<Record<string, string[]>>;
 
   upsertFeedTags(tags: { name: string; displayName: string }[]): Promise<Record<string, FeedTagStatus>>;
+  incrementTagCounts(names: string[]): Promise<void>;
   getFeedTags(status?: FeedTagStatus): Promise<FeedTag[]>;
   updateFeedTagStatus(id: number, status: FeedTagStatus): Promise<FeedTag | undefined>;
   getApprovedTagNames(): Promise<string[]>;
@@ -263,7 +273,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getArticles(limit = 50, offset = 0): Promise<Article[]> {
-    return db.select().from(articles).where(eq(articles.dismissed, false)).orderBy(desc(articles.publishedAt)).limit(limit).offset(offset);
+    return db.select(ARTICLE_LIST_SELECTION).from(articles).where(eq(articles.dismissed, false)).orderBy(desc(articles.publishedAt)).limit(limit).offset(offset);
   }
 
   async getFilteredArticles(filters: ArticleFilters): Promise<{ articles: Article[]; total: number }> {
@@ -314,7 +324,7 @@ export class DatabaseStorage implements IStorage {
       .where(whereClause);
 
     const result = await db
-      .select()
+      .select(ARTICLE_LIST_SELECTION)
       .from(articles)
       .where(whereClause)
       .orderBy(desc(articles.publishedAt))
@@ -430,19 +440,32 @@ export class DatabaseStorage implements IStorage {
     return map;
   }
 
+  // Registers tags without touching articleCount (see incrementTagCounts for the counting half).
+  // Callers must pass deduped names — Postgres errors with "cannot affect row a second time"
+  // if the same name appears twice in one batch. The only caller (mapFeedItem's extractTags
+  // output, via server/rss.ts) already dedupes.
   async upsertFeedTags(
     tags: { name: string; displayName: string }[]
   ): Promise<Record<string, FeedTagStatus>> {
     if (tags.length === 0) return {};
     const rows = await db
       .insert(feedTags)
-      .values(tags.map((t) => ({ name: t.name, displayName: t.displayName, articleCount: 1 })))
+      .values(tags.map((t) => ({ name: t.name, displayName: t.displayName, articleCount: 0 })))
       .onConflictDoUpdate({
         target: feedTags.name,
-        set: { articleCount: sql`${feedTags.articleCount} + 1` },
+        // No-op update (re-set the existing displayName) so ON CONFLICT still RETURNs the row.
+        set: { displayName: sql`${feedTags.displayName}` },
       })
       .returning();
     return Object.fromEntries(rows.map((r) => [r.name, r.status as FeedTagStatus]));
+  }
+
+  async incrementTagCounts(names: string[]): Promise<void> {
+    if (names.length === 0) return;
+    await db
+      .update(feedTags)
+      .set({ articleCount: sql`${feedTags.articleCount} + 1` })
+      .where(inArray(feedTags.name, names));
   }
 
   async getFeedTags(status?: FeedTagStatus): Promise<FeedTag[]> {
