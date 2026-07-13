@@ -70,11 +70,14 @@ export function parseAnnotationResponse(raw: string, expectedNames: string[]): T
 
 export async function annotateTags(inputs: AnnotationInput[]): Promise<TagAnnotation[]> {
   if (inputs.length === 0) return [];
+  // No jsonMode: ai-models' anthropic branch (which this model resolves to) doesn't honor
+  // it — only gemini does. Guarded instead by the prompt demanding a bare JSON array, plus
+  // parseAnnotationResponse defensively returning [] on any non-JSON output. Annotation is
+  // advise-only and retries on a later queue load, so a dropped batch is not user-visible.
   const raw = await chatCompletion({
     model: ANNOTATION_MODEL,
     messages: [{ role: "user", content: buildAnnotationPrompt(inputs) }],
     maxTokens: 4096,
-    jsonMode: true,
   });
   return parseAnnotationResponse(raw, inputs.map((i) => i.name));
 }

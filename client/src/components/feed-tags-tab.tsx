@@ -173,9 +173,11 @@ export default function FeedTagsTab() {
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <p className="text-sm text-muted-foreground" data-testid="text-hidden-tags">
-              {queue
-                ? `${queue.hiddenCount} low-volume tags auto-hidden — they surface after ${queue.threshold} articles.`
-                : "Loading review queue…"}
+              {queueQuery.isError
+                ? ""
+                : queue
+                  ? `${queue.hiddenCount} low-volume tags auto-hidden — they surface after ${queue.threshold} articles.`
+                  : "Loading review queue…"}
             </p>
             {annotated.length > 0 && (
               <Button
@@ -193,7 +195,14 @@ export default function FeedTagsTab() {
             )}
           </div>
 
-          {queueQuery.isLoading ? (
+          {queueQuery.isError ? (
+            <p className="text-sm text-destructive" data-testid="text-queue-error">
+              Couldn't load the review queue.{" "}
+              <button className="underline" onClick={() => queueQuery.refetch()} data-testid="button-queue-retry">
+                Retry
+              </button>
+            </p>
+          ) : queueQuery.isLoading ? (
             <p className="text-sm text-muted-foreground">Loading review queue…</p>
           ) : (queue?.tags.length ?? 0) === 0 ? (
             <p className="text-sm text-muted-foreground" data-testid="text-queue-empty">

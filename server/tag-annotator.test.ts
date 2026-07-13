@@ -64,7 +64,7 @@ describe("parseAnnotationResponse", () => {
 });
 
 describe("annotateTags", () => {
-  it("calls chatCompletion with jsonMode and parses the result", async () => {
+  it("calls chatCompletion with the annotation model and parses the result", async () => {
     vi.mocked(chatCompletion).mockResolvedValue(
       JSON.stringify([{ name: "m&a", summary: "Media deals", suggestion: "approve" }])
     );
@@ -72,7 +72,6 @@ describe("annotateTags", () => {
     expect(result).toEqual([{ name: "m&a", summary: "Media deals", suggestion: "approve" }]);
     expect(vi.mocked(chatCompletion).mock.calls[0][0]).toMatchObject({
       model: "claude-haiku-4-5-20251001",
-      jsonMode: true,
     });
   });
   it("returns [] for empty input without calling the model", async () => {
