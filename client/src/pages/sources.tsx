@@ -32,6 +32,7 @@ import { useState, useMemo, useCallback } from "react";
 import { VoiceInputButton } from "@/components/VoiceInputButton";
 import { GoogleDrivePickerButton } from "@/components/google-drive-picker";
 import { ConfirmDestructive } from "@/components/confirm-destructive";
+import FeedTagsTab from "@/components/feed-tags-tab";
 
 type NewsCategory = { id: number; name: string; colorBg: string; colorText: string; sortOrder: number };
 
@@ -3405,7 +3406,7 @@ function CollapsibleSourceSection({ title, icon, sources, testId }: { title: str
 }
 
 export default function Sources() {
-  const [activeTab, setActiveTab] = useState<"sources" | "uploaded">("sources");
+  const [activeTab, setActiveTab] = useState<"sources" | "uploaded" | "tags">("sources");
   const sourcesQuery = useQuery<Source[]>({
     queryKey: ["/api/sources"],
   });
@@ -3444,7 +3445,7 @@ export default function Sources() {
             <AddSourceDialog />
           </div>
         </div>
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "sources" | "uploaded")}>
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "sources" | "uploaded" | "tags")}>
           <TabsList className="mb-3">
             <TabsTrigger value="sources" data-testid="tab-sources">
               Sources
@@ -3457,6 +3458,9 @@ export default function Sources() {
                   {uploadedBadgeCount}
                 </Badge>
               )}
+            </TabsTrigger>
+            <TabsTrigger value="tags" data-testid="tab-feed-tags">
+              Tags
             </TabsTrigger>
           </TabsList>
         </Tabs>
@@ -3511,7 +3515,7 @@ export default function Sources() {
               </div>
             )}
           </>
-        ) : (
+        ) : activeTab === "uploaded" ? (
           <div className="space-y-3">
             <UploadDeckCard />
             <PendingKnowledgeBanner />
@@ -3523,6 +3527,8 @@ export default function Sources() {
               testId="section-uploaded-docs"
             />
           </div>
+        ) : (
+          <FeedTagsTab />
         )}
       </div>
     </div>
