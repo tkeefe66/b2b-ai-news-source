@@ -81,7 +81,7 @@ export async function fetchFeedArticles(sourceId: number, feedUrl: string, sourc
         title: item.title,
         link: item.link,
         guid: mapped.guid,
-        tags: mapped.tags.map((t) => t.name),
+        tags: mapped.tags.length > 0 ? mapped.tags.map((t) => t.name) : null,
         description: mapped.description,
         content: mapped.content,
         author: item.creator || item.author || null,

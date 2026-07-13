@@ -11,6 +11,7 @@ import { db, pool } from "./db";
 import { sql } from "drizzle-orm";
 import { ensureBriefsTable } from "./morning-brief/ensure-table";
 import { startBriefScheduler } from "./morning-brief/scheduler";
+import { sweepRecentUntagged } from "./tag-sweep";
 
 const app = express();
 const httpServer = createServer(app);
@@ -385,6 +386,23 @@ app.use((req, res, next) => {
       }, NEWSAPI_INTERVAL_MS);
 
       log(`Auto-fetch scheduled: RSS every ${RSS_INTERVAL_MS / 60000} min, NewsAPI every ${NEWSAPI_INTERVAL_MS / 3600000} hrs`);
+
+      const SWEEP_BOOT_DELAY_MS = 2 * 60 * 1000; // 2 minutes — lets startup fetch settle first
+      const SWEEP_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+      setTimeout(() => {
+        sweepRecentUntagged().catch(err => {
+          console.error("Tag sweep boot catch-up error (non-fatal):", err);
+        });
+      }, SWEEP_BOOT_DELAY_MS);
+
+      setInterval(() => {
+        sweepRecentUntagged().catch(err => {
+          console.error("Tag sweep interval error (non-fatal):", err);
+        });
+      }, SWEEP_INTERVAL_MS);
+
+      log(`Tag sweep scheduled: boot catch-up in ${SWEEP_BOOT_DELAY_MS / 60000} min, then every ${SWEEP_INTERVAL_MS / 3600000} hrs`);
 
       ensureBriefsTable()
         .catch(err => {

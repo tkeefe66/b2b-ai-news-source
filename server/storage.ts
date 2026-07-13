@@ -30,6 +30,7 @@ import {
   type Brief, type InsertBrief,
   type FeedTag, type FeedTagStatus,
 } from "@shared/schema";
+import type { BackfillArticle } from "./tag-backfill";
 
 export interface TagEnrichment {
   name: string;
@@ -88,6 +89,10 @@ export interface IStorage {
 
   upsertFeedTags(tags: { name: string; displayName: string }[]): Promise<Record<string, FeedTagStatus>>;
   incrementTagCounts(names: string[]): Promise<void>;
+  getTagVocabulary(): Promise<string[]>;
+  getUntaggedRecentArticles(windowDays: number, cap: number): Promise<BackfillArticle[]>;
+  setArticleTagsIfNull(id: number, tags: string[]): Promise<boolean>;
+  recomputeTagCounts(): Promise<number>;
   getFeedTags(status?: FeedTagStatus): Promise<FeedTag[]>;
   updateFeedTagStatus(id: number, status: FeedTagStatus): Promise<FeedTag | undefined>;
   getApprovedTagNames(): Promise<string[]>;
@@ -475,6 +480,69 @@ export class DatabaseStorage implements IStorage {
       .update(feedTags)
       .set({ articleCount: sql`${feedTags.articleCount} + 1` })
       .where(inArray(feedTags.name, names));
+  }
+
+  // Vocabulary the AI tagger is allowed to assign from — pending+approved only, never blocked/rejected.
+  async getTagVocabulary(): Promise<string[]> {
+    const rows = await db
+      .select({ name: feedTags.name })
+      .from(feedTags)
+      .where(inArray(feedTags.status, ["pending", "approved"]))
+      .orderBy(feedTags.name);
+    return rows.map((r) => r.name);
+  }
+
+  async getUntaggedRecentArticles(windowDays: number, cap: number): Promise<BackfillArticle[]> {
+    const since = new Date(Date.now() - windowDays * 86400000);
+    return db
+      .select({
+        id: articles.id,
+        title: articles.title,
+        description: articles.description,
+        sourceName: articles.sourceName,
+        category: articles.category,
+      })
+      .from(articles)
+      .where(and(sql`${articles.tags} IS NULL`, sql`${articles.publishedAt} >= ${since}`))
+      .orderBy(articles.id)
+      .limit(cap);
+  }
+
+  // Guarded write: only writes if tags is still NULL. Returns whether a row actually changed,
+  // so callers only increment feed_tags counts on a genuine write (avoids double-counting on races).
+  async setArticleTagsIfNull(id: number, tags: string[]): Promise<boolean> {
+    const updated = await db
+      .update(articles)
+      .set({ tags })
+      .where(and(eq(articles.id, id), sql`${articles.tags} IS NULL`))
+      .returning({ id: articles.id });
+    return updated.length > 0;
+  }
+
+  // Wholesale recompute of feed_tags.article_count from the articles table. Zeroes every count
+  // first, then re-aggregates — inside one transaction, so no external reader ever observes the
+  // zeroed intermediate state (READ COMMITTED only exposes committed data). Returns rows touched
+  // by the aggregate step (same SQL shape as script/backfill-tags.ts's recomputeArticleCounts).
+  async recomputeTagCounts(): Promise<number> {
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query("UPDATE feed_tags SET article_count = 0");
+      const result = await client.query(`
+        UPDATE feed_tags ft SET article_count = sub.cnt
+        FROM (SELECT t.tag AS name, COUNT(*)::int AS cnt
+              FROM articles a CROSS JOIN LATERAL unnest(a.tags) AS t(tag)
+              GROUP BY t.tag) sub
+        WHERE ft.name = sub.name
+      `);
+      await client.query("COMMIT");
+      return result.rowCount ?? 0;
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
   }
 
   async getFeedTags(status?: FeedTagStatus): Promise<FeedTag[]> {

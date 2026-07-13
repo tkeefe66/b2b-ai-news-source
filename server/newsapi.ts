@@ -1,5 +1,8 @@
 import { storage } from "./storage";
-import type { InsertArticle } from "@shared/schema";
+import type { InsertArticle, Article } from "@shared/schema";
+import { htmlToText } from "./sanitize";
+import { tagUntaggedArticles } from "./tag-sweep";
+import type { BackfillArticle } from "./tag-backfill";
 
 const NEWSAPI_BASE = "https://newsapi.org/v2";
 
@@ -60,6 +63,7 @@ export async function fetchNewsAPIArticles(): Promise<{ total: number; errors: n
 
   let total = 0;
   let errors = 0;
+  const createdRows: Article[] = [];
 
   for (const query of queries) {
     try {
@@ -88,11 +92,14 @@ export async function fetchNewsAPIArticles(): Promise<{ total: number; errors: n
         const existing = await storage.getArticleByLink(item.url);
         if (existing) continue;
 
+        const description = item.description ? htmlToText(item.description).substring(0, 500) : "";
+        const content = item.content ? htmlToText(item.content).substring(0, 25000) : "";
+
         const article: InsertArticle = {
           title: item.title,
           link: item.url,
-          description: item.description?.substring(0, 500) || null,
-          content: item.content?.substring(0, 2000) || null,
+          description: description || null,
+          content: content || null,
           author: item.author || null,
           publishedAt: item.publishedAt ? new Date(item.publishedAt) : new Date(),
           sourceId: null,
@@ -102,7 +109,8 @@ export async function fetchNewsAPIArticles(): Promise<{ total: number; errors: n
           isRead: false,
         };
 
-        await storage.createArticle(article);
+        const created = await storage.createArticle(article);
+        createdRows.push(created);
         total++;
       }
     } catch (err) {
@@ -112,5 +120,24 @@ export async function fetchNewsAPIArticles(): Promise<{ total: number; errors: n
   }
 
   console.log(`NewsAPI: Added ${total} articles with ${errors} errors`);
+
+  if (createdRows.length > 0) {
+    try {
+      const backfillArticles: BackfillArticle[] = createdRows.map((a) => ({
+        id: a.id,
+        title: a.title,
+        description: a.description,
+        sourceName: a.sourceName,
+        category: a.category,
+      }));
+      const tagResult = await tagUntaggedArticles(backfillArticles);
+      console.log(
+        `NewsAPI: real-time tagging — tagged=${tagResult.tagged}, empty=${tagResult.empty}, skipped=${tagResult.skipped}`
+      );
+    } catch (err) {
+      console.error("NewsAPI: real-time tagging failed (non-blocking):", err instanceof Error ? err.message : err);
+    }
+  }
+
   return { total, errors };
 }
