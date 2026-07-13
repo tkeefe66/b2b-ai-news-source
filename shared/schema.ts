@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, serial, integer, timestamp, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, serial, integer, timestamp, boolean, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -39,6 +39,23 @@ export const articles = pgTable("articles", {
   dismissed: boolean("dismissed").default(false).notNull(),
   dismissedAt: timestamp("dismissed_at"),
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+  guid: text("guid"),
+  tags: text("tags").array(),
+}, (t) => ({
+  sourceGuidIdx: uniqueIndex("articles_source_guid_idx").on(t.sourceId, t.guid),
+}));
+
+export const FEED_TAG_STATUSES = ["pending", "approved", "rejected", "blocked"] as const;
+export type FeedTagStatus = (typeof FEED_TAG_STATUSES)[number];
+
+export const feedTags = pgTable("feed_tags", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull().unique(),
+  displayName: text("display_name").notNull(),
+  status: text("status").default("pending").notNull(),
+  articleCount: integer("article_count").default(0).notNull(),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+  reviewedAt: timestamp("reviewed_at"),
 });
 
 export const trendAnalyses = pgTable("trend_analyses", {
@@ -89,6 +106,12 @@ export const insertSourceSchema = createInsertSchema(sources).omit({
 export const insertArticleSchema = createInsertSchema(articles).omit({
   id: true,
   createdAt: true,
+});
+
+export const insertFeedTagSchema = createInsertSchema(feedTags).omit({
+  id: true,
+  createdAt: true,
+  reviewedAt: true,
 });
 
 export const insertTrendAnalysisSchema = createInsertSchema(trendAnalyses).omit({
@@ -148,6 +171,8 @@ export type Source = typeof sources.$inferSelect;
 export type InsertSource = z.infer<typeof insertSourceSchema>;
 export type Article = typeof articles.$inferSelect;
 export type InsertArticle = z.infer<typeof insertArticleSchema>;
+export type FeedTag = typeof feedTags.$inferSelect;
+export type InsertFeedTag = z.infer<typeof insertFeedTagSchema>;
 export type TrendAnalysis = typeof trendAnalyses.$inferSelect;
 export type InsertTrendAnalysis = z.infer<typeof insertTrendAnalysisSchema>;
 export type TrendSnapshot = typeof trendSnapshots.$inferSelect;
