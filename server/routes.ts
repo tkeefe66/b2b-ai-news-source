@@ -4,7 +4,9 @@ import { storage } from "./storage";
 import { pool } from "./db";
 import { fetchAllFeeds, fetchFeedArticles, DEFAULT_SOURCES } from "./rss";
 import { fetchNewsAPIArticles, seedDefaultNewsapiQueries } from "./newsapi";
-import { insertSourceSchema, insertKnowledgeEntrySchema, insertPendingKnowledgeSchema, insertEnablementContentSchema, insertProductFeatureSchema, insertNewsapiQuerySchema, insertTrendWatchlistSchema, FEED_TAG_STATUSES, type FeedTagStatus, type Article } from "@shared/schema";
+import { insertSourceSchema, insertKnowledgeEntrySchema, insertPendingKnowledgeSchema, insertEnablementContentSchema, insertProductFeatureSchema, insertNewsapiQuerySchema, insertTrendWatchlistSchema, FEED_TAG_STATUSES, TAG_SURFACE_THRESHOLD, type FeedTagStatus, type Article } from "@shared/schema";
+import { mergeQueueTags } from "./tag-queue";
+import { annotateTags } from "./tag-annotator";
 import { z } from "zod";
 import Anthropic from "@anthropic-ai/sdk";
 import { GoogleGenAI } from "@google/genai";
@@ -656,8 +658,50 @@ Respond with ONLY the category name, nothing else.`,
     }
   });
 
+  app.get("/api/feed-tags/queue", async (req, res) => {
+    try {
+      const surfaced = await storage.getSurfacedPendingTags();
+      const hiddenCount = await storage.countHiddenPendingTags();
+      const names = surfaced.map((t) => t.name);
+      const enrichment = names.length ? await storage.getTagEnrichment(names) : [];
+
+      let annotations: Awaited<ReturnType<typeof annotateTags>> = [];
+      const unannotated = surfaced.filter((t) => !t.aiSummary).slice(0, 30);
+      if (unannotated.length > 0) {
+        try {
+          const headlines = await storage.getTagHeadlines(unannotated.map((t) => t.name), 3);
+          const enrichByName = new Map(enrichment.map((e) => [e.name, e]));
+          annotations = await annotateTags(
+            unannotated.map((t) => ({
+              name: t.name,
+              displayName: t.displayName,
+              sources: enrichByName.get(t.name)?.sources ?? [],
+              headlines: headlines[t.name] ?? [],
+            }))
+          );
+          if (annotations.length > 0) await storage.cacheTagAnnotations(annotations);
+        } catch (err) {
+          console.error("Tag annotation failed (queue still served):", err);
+        }
+      }
+
+      res.json({
+        threshold: TAG_SURFACE_THRESHOLD,
+        hiddenCount,
+        tags: mergeQueueTags(surfaced, enrichment, annotations),
+      });
+    } catch (err) {
+      console.error("Error building feed-tag queue:", err);
+      res.status(500).json({ error: "Failed to build tag review queue" });
+    }
+  });
+
   app.get("/api/feed-tags", async (req, res) => {
     try {
+      const search = typeof req.query.search === "string" ? req.query.search.trim() : "";
+      if (search) {
+        return res.json(await storage.searchFeedTags(search));
+      }
       const status = req.query.status as string | undefined;
       if (status && !FEED_TAG_STATUSES.includes(status as any)) {
         return res.status(400).json({ error: "Invalid status", valid: FEED_TAG_STATUSES });
@@ -667,6 +711,37 @@ Respond with ONLY the category name, nothing else.`,
     } catch (err) {
       console.error("Error listing feed tags:", err);
       res.status(500).json({ error: "Failed to list feed tags" });
+    }
+  });
+
+  app.post("/api/feed-tags/bulk", async (req, res) => {
+    try {
+      const parsed = z
+        .object({
+          items: z
+            .array(z.object({ id: z.number().int(), status: z.enum(FEED_TAG_STATUSES) }))
+            .min(1)
+            .max(100),
+        })
+        .safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid bulk payload", details: parsed.error.errors });
+      }
+      let applied = 0;
+      const failed: { id: number; error: string }[] = [];
+      for (const item of parsed.data.items) {
+        try {
+          const updated = await storage.updateFeedTagStatus(item.id, item.status);
+          if (updated) applied++;
+          else failed.push({ id: item.id, error: "Tag not found" });
+        } catch (err) {
+          failed.push({ id: item.id, error: err instanceof Error ? err.message : String(err) });
+        }
+      }
+      res.json({ applied, failed });
+    } catch (err) {
+      console.error("Error bulk-updating feed tags:", err);
+      res.status(500).json({ error: "Failed to bulk-update tags" });
     }
   });
 
