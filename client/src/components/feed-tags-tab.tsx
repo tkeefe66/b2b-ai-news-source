@@ -100,8 +100,17 @@ export default function FeedTagsTab() {
 
   const bulkMutation = useMutation({
     mutationFn: async (items: { id: number; status: FeedTagStatus }[]) => {
-      const res = await apiRequest("POST", "/api/feed-tags/bulk", { items });
-      return res.json() as Promise<{ applied: number; failed: { id: number; error: string }[] }>;
+      const combined: { applied: number; failed: { id: number; error: string }[] } = {
+        applied: 0,
+        failed: [],
+      };
+      for (let i = 0; i < items.length; i += 100) {
+        const res = await apiRequest("POST", "/api/feed-tags/bulk", { items: items.slice(i, i + 100) });
+        const result = (await res.json()) as { applied: number; failed: { id: number; error: string }[] };
+        combined.applied += result.applied;
+        combined.failed.push(...result.failed);
+      }
+      return combined;
     },
     onSuccess: (result) => {
       invalidateAll();
