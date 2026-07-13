@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { pool } from "./db";
 import { fetchAllFeeds, fetchFeedArticles, DEFAULT_SOURCES } from "./rss";
 import { fetchNewsAPIArticles, seedDefaultNewsapiQueries } from "./newsapi";
-import { insertSourceSchema, insertKnowledgeEntrySchema, insertPendingKnowledgeSchema, insertEnablementContentSchema, insertProductFeatureSchema, insertNewsapiQuerySchema, insertTrendWatchlistSchema, type Article } from "@shared/schema";
+import { insertSourceSchema, insertKnowledgeEntrySchema, insertPendingKnowledgeSchema, insertEnablementContentSchema, insertProductFeatureSchema, insertNewsapiQuerySchema, insertTrendWatchlistSchema, FEED_TAG_STATUSES, type FeedTagStatus, type Article } from "@shared/schema";
 import { z } from "zod";
 import Anthropic from "@anthropic-ai/sdk";
 import { GoogleGenAI } from "@google/genai";
@@ -206,13 +206,14 @@ export async function registerRoutes(
         category: normalize(req.query.category as string),
         excludeCategory: normalize(req.query.excludeCategory as string),
         source: normalize(req.query.source as string),
+        tag: normalize(req.query.tag as string),
         dateRange: normalize(req.query.dateRange as string) as "today" | "week" | "month" | "custom" | undefined,
         dateFrom: req.query.dateFrom as string | undefined,
         dateTo: req.query.dateTo as string | undefined,
         limit: parseInt(req.query.limit as string) || 50,
         offset: parseInt(req.query.offset as string) || 0,
       };
-      const hasFilters = filters.search || filters.category || filters.excludeCategory || filters.source || (filters.dateRange && filters.dateRange !== "all");
+      const hasFilters = filters.search || filters.category || filters.excludeCategory || filters.source || filters.tag || (filters.dateRange && filters.dateRange !== "all");
       if (hasFilters) {
         const result = await storage.getFilteredArticles(filters);
         res.json(result);
@@ -253,11 +254,12 @@ export async function registerRoutes(
 
   app.get("/api/articles/filters", async (_req, res) => {
     try {
-      const [categories, sourceNames, sourcesByCategory, allSources] = await Promise.all([
+      const [categories, sourceNames, sourcesByCategory, allSources, tags] = await Promise.all([
         storage.getDistinctCategories(),
         storage.getDistinctSourceNames(),
         storage.getSourcesByCategory(),
         storage.getSources(),
+        storage.getApprovedTagNames(),
       ]);
       const trackedCompanySources = allSources
         .filter(s => s.category === "Company Tracker")
@@ -279,7 +281,7 @@ export async function registerRoutes(
           categories.push("Company Tracker");
         }
       }
-      res.json({ categories, sources: sourceNames, sourcesByCategory });
+      res.json({ categories, sources: sourceNames, sourcesByCategory, tags });
     } catch (err) {
       console.error("Error fetching filter options:", err);
       res.status(500).json({ error: "Failed to fetch filter options" });
@@ -651,6 +653,37 @@ Respond with ONLY the category name, nothing else.`,
     } catch (err) {
       console.error("Error deleting category:", err);
       res.status(500).json({ error: "Failed to delete category" });
+    }
+  });
+
+  app.get("/api/feed-tags", async (req, res) => {
+    try {
+      const status = req.query.status as string | undefined;
+      if (status && !FEED_TAG_STATUSES.includes(status as any)) {
+        return res.status(400).json({ error: "Invalid status", valid: FEED_TAG_STATUSES });
+      }
+      const tags = await storage.getFeedTags(status as FeedTagStatus | undefined);
+      res.json(tags);
+    } catch (err) {
+      console.error("Error listing feed tags:", err);
+      res.status(500).json({ error: "Failed to list feed tags" });
+    }
+  });
+
+  app.post("/api/feed-tags/:id/status", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ error: "Invalid ID" });
+      const parsed = z.object({ status: z.enum(FEED_TAG_STATUSES) }).safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid status", details: parsed.error.errors });
+      }
+      const tag = await storage.updateFeedTagStatus(id, parsed.data.status);
+      if (!tag) return res.status(404).json({ error: "Tag not found" });
+      res.json(tag);
+    } catch (err) {
+      console.error("Error updating feed tag status:", err);
+      res.status(500).json({ error: "Failed to update tag status" });
     }
   });
 
