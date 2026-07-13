@@ -1,7 +1,7 @@
 import { db } from "./db";
-import { eq, desc, sql, and, inArray } from "drizzle-orm";
+import { eq, desc, sql, and, inArray, arrayContains } from "drizzle-orm";
 import {
-  sources, articles, trendAnalyses, trendSnapshots, chatMessages, chatSessions, briefings, knowledgeEntries, companyAnalyses, thoughtLeadership, slideDesigns, pendingKnowledge, enablementContent, articleDigests, productKnowledge, productFeatures, newsapiQueries, tlDocuments, processingJobs, knowledgeReviews, dashboardViews, competitors, trendWatchlist, crawlJobs, crawlPages, crawlEntries, briefs,
+  sources, articles, trendAnalyses, trendSnapshots, chatMessages, chatSessions, briefings, knowledgeEntries, companyAnalyses, thoughtLeadership, slideDesigns, pendingKnowledge, enablementContent, articleDigests, productKnowledge, productFeatures, newsapiQueries, tlDocuments, processingJobs, knowledgeReviews, dashboardViews, competitors, trendWatchlist, crawlJobs, crawlPages, crawlEntries, briefs, feedTags,
   type Source, type InsertSource,
   type Article, type InsertArticle,
   type TrendAnalysis, type InsertTrendAnalysis,
@@ -29,6 +29,7 @@ import {
   type CrawlPage, type InsertCrawlPage,
   type CrawlEntry, type InsertCrawlEntry,
   type Brief, type InsertBrief,
+  type FeedTag, type FeedTagStatus,
 } from "@shared/schema";
 
 export interface ArticleFilters {
@@ -36,6 +37,7 @@ export interface ArticleFilters {
   category?: string;
   excludeCategory?: string;
   source?: string;
+  tag?: string;
   dateRange?: "today" | "week" | "month" | "all" | "custom";
   dateFrom?: string;
   dateTo?: string;
@@ -56,6 +58,8 @@ export interface IStorage {
   getArticle(id: number): Promise<Article | undefined>;
   getArticlesByIds(ids: number[]): Promise<Article[]>;
   getArticleByLink(link: string): Promise<Article | undefined>;
+  getArticleByGuid(sourceId: number, guid: string): Promise<Article | undefined>;
+  setArticleGuid(id: number, guid: string): Promise<void>;
   createArticle(article: InsertArticle): Promise<Article>;
   getArticleCount(): Promise<number>;
   getArticlesBySource(sourceId: number): Promise<Article[]>;
@@ -63,6 +67,11 @@ export interface IStorage {
   getDistinctCategories(): Promise<string[]>;
   getDistinctSourceNames(): Promise<string[]>;
   getSourcesByCategory(): Promise<Record<string, string[]>>;
+
+  upsertFeedTags(tags: { name: string; displayName: string }[]): Promise<Record<string, FeedTagStatus>>;
+  getFeedTags(status?: FeedTagStatus): Promise<FeedTag[]>;
+  updateFeedTagStatus(id: number, status: FeedTagStatus): Promise<FeedTag | undefined>;
+  getApprovedTagNames(): Promise<string[]>;
 
   getTrendAnalyses(limit?: number): Promise<TrendAnalysis[]>;
   createTrendAnalysis(analysis: InsertTrendAnalysis): Promise<TrendAnalysis>;
@@ -273,6 +282,9 @@ export class DatabaseStorage implements IStorage {
     if (filters.source) {
       conditions.push(eq(articles.sourceName, filters.source));
     }
+    if (filters.tag) {
+      conditions.push(arrayContains(articles.tags, [filters.tag]));
+    }
     if (filters.dateRange === "custom" && filters.dateFrom && filters.dateTo) {
       const from = new Date(filters.dateFrom);
       const to = new Date(filters.dateTo);
@@ -325,6 +337,18 @@ export class DatabaseStorage implements IStorage {
   async getArticleByLink(link: string): Promise<Article | undefined> {
     const [article] = await db.select().from(articles).where(eq(articles.link, link));
     return article;
+  }
+
+  async getArticleByGuid(sourceId: number, guid: string): Promise<Article | undefined> {
+    const [article] = await db
+      .select()
+      .from(articles)
+      .where(and(eq(articles.sourceId, sourceId), eq(articles.guid, guid)));
+    return article;
+  }
+
+  async setArticleGuid(id: number, guid: string): Promise<void> {
+    await db.update(articles).set({ guid }).where(eq(articles.id, id));
   }
 
   async createArticle(article: InsertArticle): Promise<Article> {
@@ -404,6 +428,44 @@ export class DatabaseStorage implements IStorage {
       if (!map[r.category!].includes(r.sourceName!)) map[r.category!].push(r.sourceName!);
     }
     return map;
+  }
+
+  async upsertFeedTags(
+    tags: { name: string; displayName: string }[]
+  ): Promise<Record<string, FeedTagStatus>> {
+    if (tags.length === 0) return {};
+    const rows = await db
+      .insert(feedTags)
+      .values(tags.map((t) => ({ name: t.name, displayName: t.displayName, articleCount: 1 })))
+      .onConflictDoUpdate({
+        target: feedTags.name,
+        set: { articleCount: sql`${feedTags.articleCount} + 1` },
+      })
+      .returning();
+    return Object.fromEntries(rows.map((r) => [r.name, r.status as FeedTagStatus]));
+  }
+
+  async getFeedTags(status?: FeedTagStatus): Promise<FeedTag[]> {
+    const query = db.select().from(feedTags);
+    const rows = status ? await query.where(eq(feedTags.status, status)) : await query;
+    return rows.sort((a, b) => b.articleCount - a.articleCount);
+  }
+
+  async updateFeedTagStatus(id: number, status: FeedTagStatus): Promise<FeedTag | undefined> {
+    const [updated] = await db
+      .update(feedTags)
+      .set({ status, reviewedAt: new Date() })
+      .where(eq(feedTags.id, id))
+      .returning();
+    return updated;
+  }
+
+  async getApprovedTagNames(): Promise<string[]> {
+    const rows = await db
+      .select({ name: feedTags.name })
+      .from(feedTags)
+      .where(eq(feedTags.status, "approved"));
+    return rows.map((r) => r.name).sort();
   }
 
   async searchArticles(query: string): Promise<Article[]> {
