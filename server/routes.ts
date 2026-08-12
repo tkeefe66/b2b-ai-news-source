@@ -11,6 +11,7 @@ import { z } from "zod";
 import Anthropic from "@anthropic-ai/sdk";
 import { GoogleGenAI } from "@google/genai";
 import { AVAILABLE_MODELS, chatCompletion, chatStream, resolveModel } from "./ai-models";
+import { report } from "./usage.js";
 import { searchRelevantArticles, getSearchStats, updateSearchVectors } from "./embeddings";
 import { getDemandbaseContext, getProductKnowledgeContext, DEMANDBASE_CONTEXT } from "./demandbase-context";
 import { upload, chunkUpload, handleChunkUpload, extractTextFromFile, extractTextAndImagesFromFile, extractFramesFromVideo, processFileToKnowledge, processUrlToKnowledge, saveExtractedEntries, cleanupTempFile, type ExtractedImage } from "./file-parser";
@@ -323,6 +324,7 @@ Choose the category that best matches the topic. If none fit well, pick the clos
 Respond with ONLY the category name, nothing else.`,
         messages: [{ role: "user", content: topic }],
       });
+      report("b2b-ai-news", "claude-haiku-4-5-20251001", response.usage);
       const classifyBlock = response.content.find((b: any) => b.type === "text");
       const classified = (classifyBlock as any)?.text?.trim() || categories[0];
       const category = categories.includes(classified) ? classified : categories[0];

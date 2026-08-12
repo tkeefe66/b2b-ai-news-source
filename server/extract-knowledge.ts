@@ -1,6 +1,7 @@
 import fs from "fs";
 import Anthropic from "@anthropic-ai/sdk";
 import { storage } from "./storage";
+import { report } from "./usage.js";
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -36,6 +37,7 @@ Respond with valid JSON only, no markdown fences.`,
       }],
     });
 
+    report("b2b-ai-news", "claude-haiku-4-5-20251001", resp.usage);
     const textBlock = resp.content.find((b: any) => b.type === "text");
     const parsed = JSON.parse((textBlock as any)?.text || "{}");
     return parsed.entries || [];

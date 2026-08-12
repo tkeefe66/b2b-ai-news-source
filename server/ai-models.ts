@@ -1,5 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import Anthropic from "@anthropic-ai/sdk";
+import { report } from "./usage.js";
 
 const gemini = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY!,
@@ -91,6 +92,7 @@ export async function chatCompletion({
     max_tokens: maxTokens,
     ...(systemContent ? { system: systemContent } : {}),
   });
+  report("b2b-ai-news", model, resp.usage);
   const textBlock = resp.content.find((b: any) => b.type === "text");
   return (textBlock as any)?.text || "";
 }
@@ -146,5 +148,15 @@ export async function* chatStream({
     if (event.type === "content_block_delta" && (event.delta as any).type === "text_delta") {
       yield (event.delta as any).text;
     }
+  }
+  // Usage only exists on the final message, so it is reported after the stream
+  // drains. A consumer that abandons this generator early (an HTTP client that
+  // disconnects mid-response) never reaches here, so that call's tokens go
+  // unreported -- they still cost money, and will show up as drift.
+  try {
+    const final = await stream.finalMessage();
+    report("b2b-ai-news", model, final.usage);
+  } catch {
+    // never let reporting break a stream that already delivered its content
   }
 }
