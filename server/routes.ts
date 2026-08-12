@@ -4098,6 +4098,7 @@ Respond with valid JSON only, no markdown fences.`,
         }],
       });
 
+      report("b2b-ai-news", "claude-haiku-4-5-20251001", response.usage);
       const reviewBlock = response.content.find((b: any) => b.type === "text");
       const content = (reviewBlock as any)?.text || "{}";
       const parsed = parseAIJson(content);
@@ -4228,6 +4229,7 @@ ${userReason}`
         ...(sysMsg ? { system: sysMsg.content } : {}),
         messages: chatMsgs as any,
       });
+      report("b2b-ai-news", "claude-haiku-4-5-20251001", response.usage);
       const responseBlock = response.content.find((b: any) => b.type === "text");
       const content = (responseBlock as any)?.text || "{}";
       const result = parseAIJson(content);
