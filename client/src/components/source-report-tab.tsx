@@ -12,7 +12,7 @@ import {
 import { ConfirmDestructive } from "@/components/confirm-destructive";
 import { AlertTriangle, Trash2 } from "lucide-react";
 import type { SourceReportRow } from "@shared/schema";
-import { classifySource, dismissalRate, blockedDisplay } from "@shared/source-report";
+import { dismissalRate, blockedDisplay } from "@shared/source-report";
 
 type Filter = "all" | "silent" | "failing";
 type SortKey = "name" | "count30d" | "countAll" | "lastArticleAt" | "dismissedAll" | "blockedAll";
