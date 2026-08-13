@@ -20,6 +20,21 @@ export interface MappedItem {
   content: string | null;
 }
 
+// hnrss.org items carry no article text — the description is fixed metadata:
+//   Article URL: https://…
+//   Comments URL: https://news.ycombinator.com/item?id=…
+//   Points: 401
+//   # Comments: 134
+// Strip those lines so HN cards render clean instead of showing link noise.
+// "Comments URL:" is the HN-only marker that gates the whole rewrite; self-posts
+// (Ask HN and friends) keep whatever prose sits alongside the metadata.
+const HN_BOILERPLATE_LINE = /^(?:Article URL:|Comments URL:|Points:|#\s*Comments:).*$/gim;
+
+function stripHnBoilerplate(text: string): string {
+  if (!text.includes("Comments URL:")) return text;
+  return text.replace(HN_BOILERPLATE_LINE, "").replace(/\n{2,}/g, "\n").trim();
+}
+
 export function mapFeedItem(item: FeedItemInput): MappedItem {
   const guid =
     typeof item.guid === "string" && item.guid.trim() && item.guid.length <= GUID_MAX
@@ -27,10 +42,10 @@ export function mapFeedItem(item: FeedItemInput): MappedItem {
       : null;
 
   const rawHtml = item["content:encoded"] || item.content || "";
-  const text = rawHtml ? htmlToText(rawHtml) : "";
+  const text = rawHtml ? stripHnBoilerplate(htmlToText(rawHtml)) : "";
   const content = text ? text.substring(0, CONTENT_MAX) : null;
 
-  const snippet = (item.contentSnippet || text).trim();
+  const snippet = stripHnBoilerplate((item.contentSnippet || text).trim());
   const description = snippet ? snippet.substring(0, DESCRIPTION_MAX) : null;
 
   return { guid, tags: extractTags(item.categories), description, content };

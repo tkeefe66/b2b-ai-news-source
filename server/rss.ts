@@ -659,6 +659,43 @@ export const DEFAULT_SOURCES = [
     description: "AI trends and developments coverage.",
     isActive: false, // XML parse error
   },
+  // === Hacker News (keyword-scoped via hnrss.org) ===
+  // The HN front page is mostly off-beat for us, so these are Algolia queries with a
+  // points floor — only stories that got real traction. hnrss.org 502s intermittently;
+  // that is tolerated (a source is only auto-removed after 3 straight days of failures).
+  {
+    name: "Hacker News - AI Agents",
+    url: "https://news.ycombinator.com",
+    feedUrl: "https://hnrss.org/newest?q=%22AI+agents%22&points=50",
+    category: "AI",
+    description: "Hacker News stories about AI agents that cleared 50 points.",
+    isActive: true,
+  },
+  {
+    name: "Hacker News - LLMs",
+    url: "https://news.ycombinator.com",
+    feedUrl: "https://hnrss.org/newest?q=LLM&points=100",
+    category: "AI",
+    description: "Model releases, benchmarks, and LLM engineering debate from Hacker News (100+ points).",
+    isActive: true,
+  },
+  {
+    name: "Hacker News - Enterprise AI",
+    url: "https://news.ycombinator.com",
+    feedUrl: "https://hnrss.org/newest?q=enterprise+AI&points=20",
+    category: "CRM & Enterprise",
+    description: "Hacker News discussion of AI inside enterprise software and buying decisions.",
+    isActive: true,
+  },
+  {
+    name: "Hacker News - B2B SaaS",
+    url: "https://news.ycombinator.com",
+    feedUrl: "https://hnrss.org/newest?q=%22B2B+SaaS%22&points=20",
+    category: "GTM Tech",
+    description: "Practitioner takes on B2B SaaS pricing, GTM, and product from Hacker News.",
+    isActive: true,
+  },
+
   {
     name: "Single Grain Blog",
     url: "https://www.singlegrain.com/blog/",

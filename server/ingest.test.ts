@@ -45,6 +45,37 @@ describe("mapFeedItem", () => {
     expect(mapped).toEqual({ guid: null, tags: [], description: null, content: null });
   });
 
+  it("strips hnrss boilerplate down to null for link posts", () => {
+    const mapped = mapFeedItem({
+      guid: "https://news.ycombinator.com/item?id=49276574",
+      content:
+        "<p>Article URL: <a href=\"https://zed.dev/blog/introducing-delta\">https://zed.dev/blog/introducing-delta</a></p>\n" +
+        "<p>Comments URL: <a href=\"https://news.ycombinator.com/item?id=49276574\">https://news.ycombinator.com/item?id=49276574</a></p>\n" +
+        "<p>Points: 401</p>\n<p># Comments: 134</p>",
+    });
+    expect(mapped.content).toBeNull();
+    expect(mapped.description).toBeNull();
+    expect(mapped.guid).toBe("https://news.ycombinator.com/item?id=49276574");
+  });
+
+  it("keeps self-post prose while stripping the hnrss metadata around it", () => {
+    const mapped = mapFeedItem({
+      content:
+        "<p>We spent a year replacing our CRM. Here is what broke.</p>\n" +
+        "<p>Comments URL: <a href=\"https://news.ycombinator.com/item?id=1\">https://news.ycombinator.com/item?id=1</a></p>\n" +
+        "<p>Points: 88</p>\n<p># Comments: 42</p>",
+    });
+    expect(mapped.content).toBe("We spent a year replacing our CRM. Here is what broke.");
+    expect(mapped.description).toBe("We spent a year replacing our CRM. Here is what broke.");
+  });
+
+  it("leaves non-HN feeds that merely mention points untouched", () => {
+    const mapped = mapFeedItem({
+      content: "<p>Points: three reasons pipeline reviews fail</p>",
+    });
+    expect(mapped.description).toBe("Points: three reasons pipeline reviews fail");
+  });
+
   it("nulls out oversized or non-string guids", () => {
     expect(mapFeedItem({ guid: "g".repeat(501) }).guid).toBeNull();
     expect(mapFeedItem({ guid: 123 as unknown as string }).guid).toBeNull();
