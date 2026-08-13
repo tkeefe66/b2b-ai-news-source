@@ -38,6 +38,18 @@ Then check what the items actually carry — title, link, guid, and whether
 `<description>` holds real prose or boilerplate. A feed that parses is not the
 same as a feed worth ingesting.
 
+**Item count proves nothing about rate — check `pubDate` recency.** A narrow query
+against a large archive returns a full window of matches spanning years. It looks
+healthy and is dead: it ingests a stale backlog once, then produces nothing.
+
+```bash
+curl -s "$FEED_URL" | grep -o "<pubDate>[^<]*" | sed 's/<pubDate>//' | sort -r | head -3
+```
+
+If the newest item is weeks old, the feed is an archive, not a news source. Reject
+it or widen the query. Estimate the real rate as `item count ÷ days spanned`, and
+judge it against the ~1 article/day a healthy niche feed produces here.
+
 ## Entry shape
 
 ```ts
@@ -132,6 +144,7 @@ or SQL against prod) in the same change that edits the constant.
 | Mistake | Consequence |
 |---|---|
 | `grep -c "<item>"` to count items | Reports 0 on single-line RSS; a good feed looks dead |
+| Judging a feed by item count alone | A dead archive looks identical to a live feed; check `pubDate` recency |
 | Category not in `news_categories` | Seeds silently, articles unreachable by filter |
 | Editing `feedUrl` in place | Duplicate source; old query keeps running |
 | Adding a firehose front page | Floods the feed with off-beat articles |

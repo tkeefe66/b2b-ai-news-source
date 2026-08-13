@@ -679,22 +679,11 @@ export const DEFAULT_SOURCES = [
     description: "Model releases, benchmarks, and LLM engineering debate from Hacker News (100+ points).",
     isActive: true,
   },
-  {
-    name: "Hacker News - Enterprise AI",
-    url: "https://news.ycombinator.com",
-    feedUrl: "https://hnrss.org/newest?q=enterprise+AI&points=20",
-    category: "CRM & Enterprise",
-    description: "Hacker News discussion of AI inside enterprise software and buying decisions.",
-    isActive: true,
-  },
-  {
-    name: "Hacker News - B2B SaaS",
-    url: "https://news.ycombinator.com",
-    feedUrl: "https://hnrss.org/newest?q=%22B2B+SaaS%22&points=20",
-    category: "GTM Tech",
-    description: "Practitioner takes on B2B SaaS pricing, GTM, and product from Hacker News.",
-    isActive: true,
-  },
+  // Removed: "Hacker News - Enterprise AI" and "Hacker News - B2B SaaS". Both queries
+  // returned items, but only a stale backlog — newest was 118 and 189 days old, oldest
+  // from 2015, at ~0 new stories/day. HN does not discuss the B2B/GTM side at volume
+  // (SaaS @50pts ≈ 0.05/day, B2B @20 ≈ 0.01/day, CRM @20 ≈ 0.01/day). Don't re-add
+  // without checking pubDate recency, not just item count.
 
   {
     name: "Single Grain Blog",
