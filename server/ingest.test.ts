@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { mapFeedItem } from "./ingest";
+import { mapFeedItem, firstBlockedTag } from "./ingest";
 
 describe("mapFeedItem", () => {
   it("extracts guid, tags, and sanitized content", () => {
@@ -79,5 +79,19 @@ describe("mapFeedItem", () => {
   it("nulls out oversized or non-string guids", () => {
     expect(mapFeedItem({ guid: "g".repeat(501) }).guid).toBeNull();
     expect(mapFeedItem({ guid: 123 as unknown as string }).guid).toBeNull();
+  });
+});
+
+describe("firstBlockedTag", () => {
+  it("returns the name of the blocked tag", () => {
+    expect(firstBlockedTag({ ai: "approved", sponsored: "blocked" })).toBe("sponsored");
+  });
+
+  it("returns null when nothing is blocked", () => {
+    expect(firstBlockedTag({ ai: "approved", saas: "pending" })).toBeNull();
+  });
+
+  it("returns null for an empty status map", () => {
+    expect(firstBlockedTag({})).toBeNull();
   });
 });

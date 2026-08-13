@@ -1,3 +1,4 @@
+import type { FeedTagStatus } from "@shared/schema";
 import { extractTags } from "./tags";
 import { htmlToText } from "./sanitize";
 
@@ -49,4 +50,13 @@ export function mapFeedItem(item: FeedItemInput): MappedItem {
   const description = snippet ? snippet.substring(0, DESCRIPTION_MAX) : null;
 
   return { guid, tags: extractTags(item.categories), description, content };
+}
+
+// server/rss.ts only needs to know THAT a tag is blocked; the source report needs to know
+// which one, so the skip can be attributed to a tag in source_blocked_items.
+export function firstBlockedTag(statuses: Record<string, FeedTagStatus>): string | null {
+  for (const [name, status] of Object.entries(statuses)) {
+    if (status === "blocked") return name;
+  }
+  return null;
 }
