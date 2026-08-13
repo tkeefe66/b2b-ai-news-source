@@ -301,6 +301,15 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/sources/report", async (_req, res) => {
+    try {
+      res.json(await storage.getSourceReport());
+    } catch (err) {
+      console.error("Error building source report:", err);
+      res.status(500).json({ error: "Failed to build source report" });
+    }
+  });
+
   app.post("/api/classify-topic", async (req, res) => {
     try {
       const classifySchema = z.object({ topic: z.string().min(1).max(200) });

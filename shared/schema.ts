@@ -68,6 +68,19 @@ export const sourceFetchFailures = pgTable("source_fetch_failures", {
   sourceDateUnique: unique("source_fetch_failures_source_id_failed_date_key").on(t.sourceId, t.failedDate),
 }));
 
+// Runtime table used via raw SQL in server/rss.ts (per-source count of articles skipped
+// for carrying an admin-blocked tag). Modeled here so drizzle-kit push does not drop it.
+// Deduped on (source_id, link) so the same skipped item does not re-count every fetch cycle.
+export const sourceBlockedItems = pgTable("source_blocked_items", {
+  id: serial("id").primaryKey(),
+  sourceId: integer("source_id").notNull().references(() => sources.id, { onDelete: "cascade" }),
+  link: text("link").notNull(),
+  blockedTag: text("blocked_tag").notNull(),
+  blockedAt: timestamp("blocked_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+}, (t) => ({
+  sourceLinkUnique: unique("source_blocked_items_source_id_link_key").on(t.sourceId, t.link),
+}));
+
 export const FEED_TAG_STATUSES = ["pending", "approved", "rejected", "blocked"] as const;
 export type FeedTagStatus = (typeof FEED_TAG_STATUSES)[number];
 
@@ -596,7 +609,12 @@ export const briefs = pgTable("briefs", {
   error: text("error"),
   sentAt: timestamp("sent_at"),
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
-});
+}, (t) => ({
+  // Runtime partial unique index created via raw SQL in server/morning-brief/ensure-table.ts.
+  // Modeled here so drizzle-kit push does not drop it. Only one non-manual (scheduled) brief
+  // per brief_date is allowed; manual briefs can coexist with a scheduled brief on the same date.
+  realDailyUniq: uniqueIndex("briefs_real_daily_uniq").on(t.briefDate).where(sql`manual = false`),
+}));
 
 export const insertBriefSchema = createInsertSchema(briefs).omit({
   id: true,
@@ -605,3 +623,19 @@ export const insertBriefSchema = createInsertSchema(briefs).omit({
 
 export type Brief = typeof briefs.$inferSelect;
 export type InsertBrief = z.infer<typeof insertBriefSchema>;
+
+// One row of GET /api/sources/report. Counts are per source_id; countAll includes
+// dismissed articles, so the dismissal rate is dismissedAll / countAll.
+export type SourceReportRow = {
+  id: number;
+  name: string;
+  category: string;
+  isActive: boolean;
+  lastFetchedAt: string | null;
+  count30d: number;
+  countAll: number;
+  lastArticleAt: string | null;
+  dismissedAll: number;
+  blockedAll: number;
+  failureDays: number;
+};

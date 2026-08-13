@@ -33,6 +33,7 @@ import { VoiceInputButton } from "@/components/VoiceInputButton";
 import { GoogleDrivePickerButton } from "@/components/google-drive-picker";
 import { ConfirmDestructive } from "@/components/confirm-destructive";
 import FeedTagsTab from "@/components/feed-tags-tab";
+import SourceReportTab from "@/components/source-report-tab";
 
 type NewsCategory = { id: number; name: string; colorBg: string; colorText: string; sortOrder: number };
 
@@ -3406,7 +3407,7 @@ function CollapsibleSourceSection({ title, icon, sources, testId }: { title: str
 }
 
 export default function Sources() {
-  const [activeTab, setActiveTab] = useState<"sources" | "uploaded" | "tags">("sources");
+  const [activeTab, setActiveTab] = useState<"sources" | "uploaded" | "tags" | "report">("sources");
   const sourcesQuery = useQuery<Source[]>({
     queryKey: ["/api/sources"],
   });
@@ -3445,7 +3446,7 @@ export default function Sources() {
             <AddSourceDialog />
           </div>
         </div>
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "sources" | "uploaded" | "tags")}>
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "sources" | "uploaded" | "tags" | "report")}>
           <TabsList className="mb-3">
             <TabsTrigger value="sources" data-testid="tab-sources">
               Sources
@@ -3461,6 +3462,9 @@ export default function Sources() {
             </TabsTrigger>
             <TabsTrigger value="tags" data-testid="tab-feed-tags">
               Tags
+            </TabsTrigger>
+            <TabsTrigger value="report" data-testid="tab-source-report">
+              Report
             </TabsTrigger>
           </TabsList>
         </Tabs>
@@ -3527,8 +3531,10 @@ export default function Sources() {
               testId="section-uploaded-docs"
             />
           </div>
-        ) : (
+        ) : activeTab === "tags" ? (
           <FeedTagsTab />
+        ) : (
+          <SourceReportTab />
         )}
       </div>
     </div>

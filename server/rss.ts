@@ -2,7 +2,7 @@ import RSSParser from "rss-parser";
 import { storage } from "./storage";
 import { pool } from "./db";
 import type { InsertArticle } from "@shared/schema";
-import { mapFeedItem, type FeedItemInput } from "./ingest";
+import { mapFeedItem, firstBlockedTag, type FeedItemInput } from "./ingest";
 
 const parser = new RSSParser({
   timeout: 10000,
@@ -21,6 +21,21 @@ async function recordFetchFailure(sourceId: number, errorMessage: string): Promi
     );
   } catch (err) {
     console.error(`Failed to record fetch failure for source ${sourceId}:`, err);
+  }
+}
+
+// Exported so the test can drive it directly; recordFetchFailure stays private
+// because nothing tests it.
+export async function recordBlockedItem(sourceId: number, link: string, blockedTag: string): Promise<void> {
+  try {
+    await pool.query(
+      `INSERT INTO source_blocked_items (source_id, link, blocked_tag)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (source_id, link) DO NOTHING`,
+      [sourceId, link, blockedTag]
+    );
+  } catch (err) {
+    console.error(`Failed to record blocked item for source ${sourceId}:`, err);
   }
 }
 
@@ -64,8 +79,12 @@ export async function fetchFeedArticles(sourceId: number, feedUrl: string, sourc
       const mapped = mapFeedItem(item as FeedItemInput);
 
       const tagStatuses = await storage.upsertFeedTags(mapped.tags);
-      if (Object.values(tagStatuses).includes("blocked")) {
-        continue; // article carries an admin-blocked tag (e.g. "sponsored")
+      const blockedTag = firstBlockedTag(tagStatuses);
+      if (blockedTag) {
+        // article carries an admin-blocked tag (e.g. "sponsored") — record it so the
+        // source report can show how much noise this feed pushes, then skip
+        await recordBlockedItem(sourceId, item.link, blockedTag);
+        continue;
       }
 
       let existing = mapped.guid ? await storage.getArticleByGuid(sourceId, mapped.guid) : undefined;

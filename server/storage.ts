@@ -29,6 +29,7 @@ import {
   type CrawlEntry, type InsertCrawlEntry,
   type Brief, type InsertBrief,
   type FeedTag, type FeedTagStatus,
+  type SourceReportRow,
 } from "@shared/schema";
 import type { BackfillArticle } from "./tag-backfill";
 
@@ -86,6 +87,7 @@ export interface IStorage {
   getDistinctCategories(): Promise<string[]>;
   getDistinctSourceNames(): Promise<string[]>;
   getSourcesByCategory(): Promise<Record<string, string[]>>;
+  getSourceReport(): Promise<SourceReportRow[]>;
 
   upsertFeedTags(tags: { name: string; displayName: string }[]): Promise<Record<string, FeedTagStatus>>;
   incrementTagCounts(names: string[]): Promise<void>;
@@ -582,6 +584,52 @@ export class DatabaseStorage implements IStorage {
       .from(feedTags)
       .where(and(eq(feedTags.status, "pending"), lt(feedTags.articleCount, TAG_SURFACE_THRESHOLD)));
     return row?.count ?? 0;
+  }
+
+  async getSourceReport(): Promise<SourceReportRow[]> {
+    const { rows } = await pool.query(`
+      SELECT s.id, s.name, s.category, s.is_active, s.last_fetched_at,
+             COALESCE(a.count_30d, 0)     AS count_30d,
+             COALESCE(a.count_all, 0)     AS count_all,
+             a.last_article_at,
+             COALESCE(a.dismissed_all, 0) AS dismissed_all,
+             COALESCE(b.blocked_all, 0)   AS blocked_all,
+             COALESCE(f.failure_days, 0)  AS failure_days
+      FROM sources s
+      LEFT JOIN (
+        SELECT source_id,
+               COUNT(*) FILTER (WHERE published_at >= NOW() - INTERVAL '30 days')::int AS count_30d,
+               COUNT(*)::int AS count_all,
+               MAX(published_at) AS last_article_at,
+               COUNT(*) FILTER (WHERE dismissed)::int AS dismissed_all
+        FROM articles
+        WHERE source_id IS NOT NULL
+        GROUP BY source_id
+      ) a ON a.source_id = s.id
+      LEFT JOIN (
+        SELECT source_id, COUNT(*)::int AS blocked_all
+        FROM source_blocked_items GROUP BY source_id
+      ) b ON b.source_id = s.id
+      LEFT JOIN (
+        SELECT source_id, COUNT(DISTINCT failed_date)::int AS failure_days
+        FROM source_fetch_failures GROUP BY source_id
+      ) f ON f.source_id = s.id
+      WHERE s.feed_url NOT LIKE 'upload://%'
+      ORDER BY count_30d DESC, count_all DESC, s.name ASC
+    `);
+    return rows.map((r: any) => ({
+      id: r.id,
+      name: r.name,
+      category: r.category,
+      isActive: r.is_active,
+      lastFetchedAt: r.last_fetched_at ? new Date(r.last_fetched_at).toISOString() : null,
+      count30d: r.count_30d,
+      countAll: r.count_all,
+      lastArticleAt: r.last_article_at ? new Date(r.last_article_at).toISOString() : null,
+      dismissedAll: r.dismissed_all,
+      blockedAll: r.blocked_all,
+      failureDays: r.failure_days,
+    }));
   }
 
   async getTagEnrichment(names: string[]): Promise<TagEnrichment[]> {
