@@ -68,6 +68,19 @@ export const sourceFetchFailures = pgTable("source_fetch_failures", {
   sourceDateUnique: unique("source_fetch_failures_source_id_failed_date_key").on(t.sourceId, t.failedDate),
 }));
 
+// Runtime table used via raw SQL in server/rss.ts (per-source count of articles skipped
+// for carrying an admin-blocked tag). Modeled here so drizzle-kit push does not drop it.
+// Deduped on (source_id, link) so the same skipped item does not re-count every fetch cycle.
+export const sourceBlockedItems = pgTable("source_blocked_items", {
+  id: serial("id").primaryKey(),
+  sourceId: integer("source_id").notNull().references(() => sources.id, { onDelete: "cascade" }),
+  link: text("link").notNull(),
+  blockedTag: text("blocked_tag").notNull(),
+  blockedAt: timestamp("blocked_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+}, (t) => ({
+  sourceLinkUnique: unique("source_blocked_items_source_id_link_key").on(t.sourceId, t.link),
+}));
+
 export const FEED_TAG_STATUSES = ["pending", "approved", "rejected", "blocked"] as const;
 export type FeedTagStatus = (typeof FEED_TAG_STATUSES)[number];
 
