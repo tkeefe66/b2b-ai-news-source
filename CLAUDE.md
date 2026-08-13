@@ -16,7 +16,7 @@ Architecture, feature inventory, and per-feature operational notes live in `repl
   DATABASE_URL="$(railway variables --service Postgres --kv | grep '^DATABASE_PUBLIC_URL=' | cut -d= -f2-)" npm run db:push
   ```
   `railway run` injects the internal host (`postgres.railway.internal`), which is unresolvable locally — always use the public proxy URL as above. The same pattern (a small node script + `pg` via `createRequire`) serves read-only prod queries.
-- **drizzle drop-trap**: every DB object created at runtime MUST be mirrored in `shared/schema.ts` (see the modeled `search_vector` column and `source_fetch_failures` table) or `db:push` will propose dropping it. Any UNEXPECTED drop in the push plan → abort and reconcile the schema; never accept a drop you can't explain.
+- **drizzle drop-trap**: every DB object created at runtime MUST be mirrored in `shared/schema.ts` — tables, columns, **and indexes** (see the modeled `search_vector` column, the `source_fetch_failures` / `source_blocked_items` tables, and the `briefs_real_daily_uniq` partial unique index) or `db:push` will propose dropping it. Any UNEXPECTED drop in the push plan → abort and reconcile the schema; never accept a drop you can't explain.
 - Single-replica assumptions: the Morning Brief scheduler and the tag sweep use per-process guards — do not scale the service above 1 replica without moving their claims into SQL.
 
 ## Hard-won gotchas

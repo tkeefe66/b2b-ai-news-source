@@ -24,6 +24,14 @@ Adding a source is a code change only. No `db:push`, no migration.
 | Item → article mapping | `server/ingest.ts` → `mapFeedItem` |
 | Runtime CRUD | `POST/PATCH/DELETE /api/sources` |
 
+## Already in the DB? Read the Report tab, don't curl
+
+For a source that already exists, **Sources → Report** (`GET /api/sources/report`)
+answers "is this producing" directly: 30d and all-time counts, last-article date,
+dismissed rate, blocked count, and fetch-failure days per source, with a "Silent"
+chip listing everything at zero for 30 days. Start there. The curl checks below are
+for feeds not yet added, where there is no ingest history to read.
+
 ## Validate the feed BEFORE writing the entry
 
 ```bash
