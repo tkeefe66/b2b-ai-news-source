@@ -618,3 +618,19 @@ export const insertBriefSchema = createInsertSchema(briefs).omit({
 
 export type Brief = typeof briefs.$inferSelect;
 export type InsertBrief = z.infer<typeof insertBriefSchema>;
+
+// One row of GET /api/sources/report. Counts are per source_id; countAll includes
+// dismissed articles, so the dismissal rate is dismissedAll / countAll.
+export type SourceReportRow = {
+  id: number;
+  name: string;
+  category: string;
+  isActive: boolean;
+  lastFetchedAt: string | null;
+  count30d: number;
+  countAll: number;
+  lastArticleAt: string | null;
+  dismissedAll: number;
+  blockedAll: number;
+  failureDays: number;
+};
