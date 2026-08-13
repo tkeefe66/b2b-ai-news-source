@@ -194,7 +194,9 @@ All imports used here (`pgTable`, `serial`, `integer`, `text`, `timestamp`, `uni
 Add directly below `recordFetchFailure`:
 
 ```ts
-async function _recordBlockedItem(sourceId: number, link: string, blockedTag: string): Promise<void> {
+// Exported so the test can drive it directly; recordFetchFailure stays private
+// because nothing tests it.
+export async function recordBlockedItem(sourceId: number, link: string, blockedTag: string): Promise<void> {
   try {
     await pool.query(
       `INSERT INTO source_blocked_items (source_id, link, blocked_tag)
@@ -206,10 +208,7 @@ async function _recordBlockedItem(sourceId: number, link: string, blockedTag: st
     console.error(`Failed to record blocked item for source ${sourceId}:`, err);
   }
 }
-export const recordBlockedItem = _recordBlockedItem;
 ```
-
-(Exported so the test can drive it directly; `recordFetchFailure` stays private because nothing tests it.)
 
 - [ ] **Step 5: Run the test to verify it passes**
 
@@ -530,7 +529,7 @@ git commit -m "feat(sources): add GET /api/sources/report aggregate"
 
 **Files:**
 - Create: `client/src/components/source-report-tab.tsx`
-- Modify: `client/src/pages/sources.tsx` (three edits: the `activeTab` union at line ~3409, the `Tabs onValueChange` cast at ~3448, the `TabsList` at ~3462, and the render branch at ~3531)
+- Modify: `client/src/pages/sources.tsx` (four edits: the import at ~35, the `activeTab` union at ~3409, the `Tabs onValueChange` cast at ~3448 plus the `TabsList` trigger at ~3462, and the render branch at ~3531)
 
 **Interfaces:**
 - Consumes: `GET /api/sources/report`; `SourceReportRow` from `@shared/schema`; `classifySource`, `dismissalRate`, `blockedDisplay` from `@shared/source-report`.
