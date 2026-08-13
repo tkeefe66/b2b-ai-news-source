@@ -81,6 +81,7 @@ export default function SourceReportTab() {
     onSuccess: () => {
       invalidate();
       queryClient.invalidateQueries({ queryKey: ["/api/articles"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/articles/filters"] });
       toast({ title: "Source deleted" });
     },
     onError: () => toast({ title: "Could not delete source", variant: "destructive" }),
@@ -105,9 +106,11 @@ export default function SourceReportTab() {
   }
 
   const all = reportQuery.data ?? [];
-  const filtered = filter === "all" ? all : all.filter((r) => classifySource(r) === filter);
+  const matches = (r: SourceReportRow) =>
+    filter === "silent" ? r.count30d === 0 : r.failureDays > 0;
+  const filtered = filter === "all" ? all : all.filter(matches);
   const rows = sortRows(filtered, sortKey, sortDesc);
-  const silentCount = all.filter((r) => classifySource(r) === "silent").length;
+  const silentCount = all.filter((r) => r.count30d === 0).length;
 
   const header = (key: SortKey, label: string, className = "") => (
     <TableHead className={className}>

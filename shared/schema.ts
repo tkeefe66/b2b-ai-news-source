@@ -609,7 +609,12 @@ export const briefs = pgTable("briefs", {
   error: text("error"),
   sentAt: timestamp("sent_at"),
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
-});
+}, (t) => ({
+  // Runtime partial unique index created via raw SQL in server/morning-brief/ensure-table.ts.
+  // Modeled here so drizzle-kit push does not drop it. Only one non-manual (scheduled) brief
+  // per brief_date is allowed; manual briefs can coexist with a scheduled brief on the same date.
+  realDailyUniq: uniqueIndex("briefs_real_daily_uniq").on(t.briefDate).where(sql`manual = false`),
+}));
 
 export const insertBriefSchema = createInsertSchema(briefs).omit({
   id: true,
