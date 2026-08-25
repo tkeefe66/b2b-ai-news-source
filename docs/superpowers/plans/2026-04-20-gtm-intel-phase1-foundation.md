@@ -1069,7 +1069,7 @@ async function seed() {
     const passwordHash = await hashPassword("change-me");
     await db.insert(users).values({
       email: "admin@example.com",
-      name: "Tom Keefe",
+      name: "Admin User",
       passwordHash,
       role: "admin",
     });
