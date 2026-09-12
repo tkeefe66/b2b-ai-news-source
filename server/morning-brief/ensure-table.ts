@@ -17,6 +17,8 @@ export async function ensureBriefsTable(): Promise<void> {
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
     )
   `);
+  await pool.query(`ALTER TABLE briefs ADD COLUMN IF NOT EXISTS delivery_payload TEXT`);
+  await pool.query(`ALTER TABLE briefs ADD COLUMN IF NOT EXISTS delivery_started_at TIMESTAMP`);
   await pool.query(`
     CREATE UNIQUE INDEX IF NOT EXISTS briefs_real_daily_uniq
     ON briefs (brief_date) WHERE manual = FALSE

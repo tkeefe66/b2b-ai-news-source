@@ -1648,6 +1648,7 @@ function DocumentsTab() {
       if (!file) throw new Error("No file selected");
 
       const uploadAndProcess = async (uploadedFile: File): Promise<any> => {
+        if (uploadedFile.size > 50 * 1024 * 1024) throw new Error("File exceeds the 50 MB upload limit");
         const useChunked = uploadedFile.size > CHUNK_SIZE;
 
         if (!useChunked) {
@@ -1689,9 +1690,7 @@ function DocumentsTab() {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                filePath: chunkResult.filePath,
-                filename: chunkResult.filename,
-                size: chunkResult.size,
+                uploadId: chunkResult.uploadId,
                 description,
               }),
             });
@@ -1786,7 +1785,7 @@ function DocumentsTab() {
           <input
             ref={fileInputRef}
             type="file"
-            accept=".pdf,.docx,.pptx,.pptm,.ppt,.txt"
+            accept=".pdf,.docx,.pptx,.pptm,.txt"
             className="hidden"
             onChange={(e) => {
               const f = e.target.files?.[0];

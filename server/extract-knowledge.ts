@@ -1,11 +1,9 @@
 import fs from "fs";
-import Anthropic from "@anthropic-ai/sdk";
+import { createAnthropicMessage } from "./ai-models";
+import { parseAIJson, modelOutputSchemas } from "./model-output";
+import { z } from "zod";
 import { storage } from "./storage";
 import { report } from "./usage.js";
-
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
 
 interface RawEntry {
   category: string;
@@ -16,7 +14,7 @@ interface RawEntry {
 
 async function extractFromContent(groupName: string, content: string): Promise<RawEntry[]> {
   try {
-    const resp = await anthropic.messages.create({
+    const resp = await createAnthropicMessage({
       model: "claude-haiku-4-5-20251001",
       max_tokens: 8000,
       system: `You are a knowledge extraction expert. Extract ALL meaningful knowledge from the Demandbase content below into structured JSON entries. Be EXHAUSTIVE and capture EVERY distinct piece of information.
@@ -39,11 +37,11 @@ Respond with valid JSON only, no markdown fences.`,
 
     report("b2b-ai-news", "claude-haiku-4-5-20251001", resp.usage);
     const textBlock = resp.content.find((b: any) => b.type === "text");
-    const parsed = JSON.parse((textBlock as any)?.text || "{}");
-    return parsed.entries || [];
+    const parsed = parseAIJson((textBlock as any)?.text, z.object({entries:modelOutputSchemas.knowledgeEntries}));
+    return parsed.entries;
   } catch (e: any) {
     console.error(`Failed to extract from ${groupName}:`, e.message);
-    return [];
+    throw new Error("Knowledge extraction failed. Existing knowledge was preserved; please retry.");
   }
 }
 

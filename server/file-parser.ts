@@ -1,17 +1,15 @@
 import multer from "multer";
-import JSZip from "jszip";
-import { createRequire } from "module";
+import { loadBoundedZip } from "./bounded-zip";
+import { uploadStore, MAX_UPLOAD_BYTES, MAX_CHUNK_BYTES, validateUploadFilename } from "./upload-store";
+export { consumeUploadedFile } from "./upload-store";
+import { parsePdfIsolated } from "./pdf-isolation";
 import { chatCompletion } from "./ai-models";
+import { parseAIJson, modelOutputSchemas } from "./model-output";
 import { storage } from "./storage";
 import path from "path";
 import fs from "fs";
 import os from "os";
 import { execFile } from "child_process";
-
-const _require = createRequire(
-  typeof __filename !== "undefined" ? __filename : process.argv[1] || "."
-);
-const pdfParse = _require("pdf-parse");
 
 function stripXmlTags(xml: string): string {
   return xml
@@ -62,7 +60,7 @@ async function extractTextFromPptx(buffer: Buffer): Promise<string> {
 }
 
 async function extractTextAndImagesFromPptx(buffer: Buffer): Promise<PptxExtractionResult> {
-  const zip = await JSZip.loadAsync(buffer);
+  const zip = await loadBoundedZip(buffer);
   const slideTexts: { num: number; text: string }[] = [];
 
   const slideFiles = Object.keys(zip.files)
@@ -76,7 +74,7 @@ async function extractTextAndImagesFromPptx(buffer: Buffer): Promise<PptxExtract
   const slideImageMap = new Map<string, number>();
 
   for (const slidePath of slideFiles) {
-    const xml = await zip.files[slidePath].async("text");
+    const xml = (await zip.read(slidePath)).toString("utf8");
     const text = stripXmlTags(xml);
     const num = parseInt(slidePath.match(/slide(\d+)/i)?.[1] || "0");
     if (text.length > 5) {
@@ -86,7 +84,7 @@ async function extractTextAndImagesFromPptx(buffer: Buffer): Promise<PptxExtract
     const relsPath = slidePath.replace("ppt/slides/", "ppt/slides/_rels/") + ".rels";
     const relsFile = zip.files[relsPath];
     if (relsFile) {
-      const relsXml = await relsFile.async("text");
+      const relsXml = (await zip.read(relsPath)).toString("utf8");
       const imageRefs = relsXml.match(/Target="[^"]*?\/media\/[^"]+"/gi) || [];
       for (const ref of imageRefs) {
         const targetMatch = ref.match(/Target="([^"]+)"/i);
@@ -107,7 +105,7 @@ async function extractTextAndImagesFromPptx(buffer: Buffer): Promise<PptxExtract
     .filter(name => /^ppt\/notesSlides\/notesSlide\d+\.xml$/i.test(name));
 
   for (const notePath of notesFiles) {
-    const xml = await zip.files[notePath].async("text");
+    const xml = (await zip.read(notePath)).toString("utf8");
     const text = stripXmlTags(xml);
     if (text.length > 5) {
       const num = parseInt(notePath.match(/notesSlide(\d+)/i)?.[1] || "0");
@@ -127,7 +125,7 @@ async function extractTextAndImagesFromPptx(buffer: Buffer): Promise<PptxExtract
     const mimeType = IMAGE_MIME_TYPES[ext];
     if (!mimeType) continue;
 
-    const data = await zip.files[mediaPath].async("nodebuffer");
+    const data = await zip.read(mediaPath);
     if (data.length < MIN_IMAGE_SIZE) continue;
 
     const slideNum = slideImageMap.get(mediaPath) || 0;
@@ -143,99 +141,35 @@ async function extractTextAndImagesFromPptx(buffer: Buffer): Promise<PptxExtract
 }
 
 async function extractTextFromDocx(buffer: Buffer): Promise<string> {
-  const zip = await JSZip.loadAsync(buffer);
+  const zip = await loadBoundedZip(buffer);
   const docFile = zip.files["word/document.xml"];
   if (!docFile) throw new Error("Invalid .docx file: missing word/document.xml");
-  const xml = await docFile.async("text");
+  const xml = (await zip.read("word/document.xml")).toString("utf8");
   return stripXmlTags(xml);
 }
 
-const uploadDir = path.join(os.tmpdir(), "app-uploads");
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-const chunkedDir = path.join(os.tmpdir(), "app-chunked-uploads");
-if (!fs.existsSync(chunkedDir)) fs.mkdirSync(chunkedDir, { recursive: true });
-
 export const upload = multer({
   storage: multer.diskStorage({
-    destination: uploadDir,
-    filename: (_req, file, cb) => {
-      const uniqueName = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}_${file.originalname}`;
-      cb(null, uniqueName);
-    },
+    destination: uploadStore.root,
+    filename: (_req, _file, cb) => cb(null, path.basename(uploadStore.newIncomingPath())),
   }),
-  limits: { fileSize: 500 * 1024 * 1024 },
+  limits: { fileSize: MAX_UPLOAD_BYTES, files: 1, fields: 10, fieldSize: 16384, parts: 11 },
   fileFilter: (_req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-    const allowed = [".pptx", ".pptm", ".pdf", ".ppt", ".docx", ".txt", ".png", ".jpg", ".jpeg", ".webp", ".gif", ".mp4", ".mov", ".avi", ".webm"];
-    if (allowed.includes(ext)) {
-      cb(null, true);
-    } else {
-      cb(new Error(`Unsupported file type: ${ext}. Supported: ${allowed.join(", ")}`));
-    }
+    try { validateUploadFilename(file.originalname); cb(null, true); }
+    catch (error: any) { cb(error); }
   },
 });
 
 export const chunkUpload = multer({
   storage: multer.diskStorage({
-    destination: chunkedDir,
-    filename: (_req, _file, cb) => {
-      cb(null, `chunk_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`);
-    },
+    destination: uploadStore.root,
+    filename: (_req, _file, cb) => cb(null, path.basename(uploadStore.newIncomingPath())),
   }),
-  limits: { fileSize: 6 * 1024 * 1024 },
+  limits: { fileSize: MAX_CHUNK_BYTES, files: 1, fields: 4, fieldSize: 1024, parts: 5 },
 });
 
-const activeChunkedUploads = new Map<string, { totalChunks: number; receivedChunks: Set<number>; filename: string; createdAt: number }>();
-
-setInterval(() => {
-  const now = Date.now();
-  for (const [uploadId, info] of Array.from(activeChunkedUploads.entries())) {
-    if (now - info.createdAt > 30 * 60 * 1000) {
-      activeChunkedUploads.delete(uploadId);
-      for (let i = 0; i < info.totalChunks; i++) {
-        const chunkPath = path.join(chunkedDir, `${uploadId}_${i}`);
-        if (fs.existsSync(chunkPath)) fs.unlinkSync(chunkPath);
-      }
-    }
-  }
-}, 5 * 60 * 1000);
-
-export function handleChunkUpload(req: any): { complete: false } | { complete: true; filePath: string; filename: string; size: number } {
-  const { uploadId, chunkIndex, totalChunks, filename } = req.body;
-  const idx = parseInt(chunkIndex, 10);
-  const total = parseInt(totalChunks, 10);
-
-  if (!uploadId || isNaN(idx) || isNaN(total) || !filename) {
-    throw new Error("Missing chunked upload parameters");
-  }
-
-  if (!activeChunkedUploads.has(uploadId)) {
-    activeChunkedUploads.set(uploadId, { totalChunks: total, receivedChunks: new Set(), filename, createdAt: Date.now() });
-  }
-
-  const info = activeChunkedUploads.get(uploadId)!;
-  const chunkDest = path.join(chunkedDir, `${uploadId}_${idx}`);
-  if (req.file) {
-    fs.renameSync(req.file.path, chunkDest);
-  }
-  info.receivedChunks.add(idx);
-
-  if (info.receivedChunks.size < total) {
-    return { complete: false };
-  }
-
-  const assembledPath = path.join(uploadDir, `${Date.now()}_${Math.random().toString(36).slice(2, 8)}_${filename}`);
-  let totalSize = 0;
-  for (let i = 0; i < total; i++) {
-    const cp = path.join(chunkedDir, `${uploadId}_${i}`);
-    const data = fs.readFileSync(cp);
-    fs.appendFileSync(assembledPath, data);
-    totalSize += data.length;
-    fs.unlinkSync(cp);
-  }
-  activeChunkedUploads.delete(uploadId);
-
-  return { complete: true, filePath: assembledPath, filename, size: totalSize };
+export function handleChunkUpload(req: any) {
+  return uploadStore.acceptChunk(req.body, req.file?.path, req.auth?.email ?? req.sessionID);
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
@@ -257,11 +191,14 @@ async function extractImagesFromPdf(buffer: Buffer): Promise<ExtractedImage[]> {
   const images: ExtractedImage[] = [];
   try {
     let offset = 0;
+    let examined = 0;
+    let imageBytes = 0;
     const pngSignature = Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
     const jpegStart = Buffer.from([0xFF, 0xD8, 0xFF]);
     const jpegEnd = Buffer.from([0xFF, 0xD9]);
 
     while (offset < buffer.length - 8) {
+      if (++examined > 100) throw new Error("PDF has too many embedded image fragments");
       const pngIdx = buffer.indexOf(pngSignature, offset);
       const jpegIdx = buffer.indexOf(jpegStart, offset);
 
@@ -273,6 +210,8 @@ async function extractImagesFromPdf(buffer: Buffer): Promise<ExtractedImage[]> {
         if (endIdx !== -1) {
           const imgData = buffer.subarray(pngIdx, endIdx + 8);
           if (imgData.length >= MIN_IMAGE_SIZE) {
+            imageBytes += imgData.length;
+            if (imageBytes > 12 * 1024 * 1024) throw new Error("PDF embedded images exceed 12 MB limit");
             images.push({ slideNum: images.length + 1, data: Buffer.from(imgData), mimeType: "image/png" });
           }
           offset = endIdx + 8;
@@ -284,6 +223,8 @@ async function extractImagesFromPdf(buffer: Buffer): Promise<ExtractedImage[]> {
         if (endIdx !== -1) {
           const imgData = buffer.subarray(jpegIdx, endIdx + 2);
           if (imgData.length >= MIN_IMAGE_SIZE) {
+            imageBytes += imgData.length;
+            if (imageBytes > 12 * 1024 * 1024) throw new Error("PDF embedded images exceed 12 MB limit");
             images.push({ slideNum: images.length + 1, data: Buffer.from(imgData), mimeType: "image/jpeg" });
           }
           offset = endIdx + 2;
@@ -295,6 +236,7 @@ async function extractImagesFromPdf(buffer: Buffer): Promise<ExtractedImage[]> {
     console.log(`[file-parser] PDF image extraction: found ${images.length} images (>= ${MIN_IMAGE_SIZE / 1024}KB)`);
   } catch (err) {
     console.error("[file-parser] PDF image extraction error:", err);
+    throw err;
   }
   return images;
 }
@@ -305,7 +247,12 @@ export async function extractTextFromFile(input: Buffer | string, filename: stri
 }
 
 export async function extractTextAndImagesFromFile(input: Buffer | string, filename: string): Promise<FileExtractionResult> {
+  if (typeof input === "string") {
+    uploadStore.assertOwned(input);
+    if (fs.statSync(input).size > MAX_UPLOAD_BYTES) throw new Error("File exceeds upload size limit");
+  }
   const buffer = typeof input === "string" ? fs.readFileSync(input) : input;
+  if (buffer.length > MAX_UPLOAD_BYTES) throw new Error("File exceeds upload size limit");
   const ext = path.extname(filename).toLowerCase();
   const sizeMB = buffer.length / (1024 * 1024);
   const timeoutMs = Math.max(120000, Math.round(sizeMB * 10000));
@@ -317,10 +264,10 @@ export async function extractTextAndImagesFromFile(input: Buffer | string, filen
 
   if (ext === ".pdf") {
     const [data, images] = await Promise.all([
-      withTimeout(pdfParse(buffer), timeoutMs, "PDF text extraction") as Promise<{ text: string }>,
+      parsePdfIsolated(buffer),
       extractImagesFromPdf(buffer),
     ]);
-    return { text: data.text, images };
+    return { text: data, images };
   }
 
   if (ext === ".txt") {
@@ -341,13 +288,15 @@ export async function extractTextAndImagesFromFile(input: Buffer | string, filen
 }
 
 export async function extractFramesFromVideo(filePath: string, frameCount: number = 8): Promise<Buffer[]> {
+  uploadStore.assertOwned(filePath);
+  if (fs.statSync(filePath).size > MAX_UPLOAD_BYTES) throw new Error("Video exceeds upload size limit");
   const duration = await new Promise<number>((resolve, reject) => {
     execFile("ffprobe", [
       "-v", "error",
       "-show_entries", "format=duration",
       "-of", "default=noprint_wrappers=1:nokey=1",
       filePath,
-    ], (err, stdout) => {
+    ], { timeout: 30000, maxBuffer: 1024 * 1024 }, (err, stdout) => {
       if (err) return reject(err);
       const dur = parseFloat(stdout.trim());
       if (isNaN(dur) || dur <= 0) return reject(new Error("Could not determine video duration"));
@@ -374,7 +323,7 @@ export async function extractFramesFromVideo(filePath: string, frameCount: numbe
           "-vf", "scale='min(1280,iw)':'min(720,ih)':force_original_aspect_ratio=decrease",
           "-y",
           outputPath,
-        ], (err) => {
+        ], { timeout: 30000, maxBuffer: 1024 * 1024 }, (err) => {
           if (err) return reject(err);
           resolve();
         });
@@ -394,12 +343,7 @@ export async function extractFramesFromVideo(filePath: string, frameCount: numbe
 }
 
 export function cleanupTempFile(filePath: string) {
-  try {
-    if (filePath && fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-    }
-  } catch (e) {
-  }
+  uploadStore.cleanup(filePath);
 }
 
 const VALID_CATEGORIES = [
@@ -454,24 +398,7 @@ Rules:
     maxTokens: 4000,
   });
 
-  let entries: Array<{ category: string; title: string; content: string; sourceUrl: string | null }> = [];
-  try {
-    const jsonMatch = response.match(/\[[\s\S]*\]/);
-    if (jsonMatch) {
-      entries = JSON.parse(jsonMatch[0]);
-    }
-  } catch (parseErr) {
-    console.error("Failed to parse knowledge entries:", parseErr);
-    entries = [{
-      category: userCategory || "Platform Overview",
-      title: filename.replace(/\.[^.]+$/, ""),
-      content: truncatedText.substring(0, 2000),
-      sourceUrl: null,
-    }];
-  }
-
-  entries = entries.filter(e => e.title && e.content && e.category);
-  entries = entries.map(e => ({
+  const entries = parseAIJson(response, modelOutputSchemas.knowledgeEntries).map(e => ({
     ...e,
     category: VALID_CATEGORIES.includes(e.category) ? e.category : (userCategory || "Platform Overview"),
   }));
@@ -521,18 +448,7 @@ Rules:
     maxTokens: 4000,
   });
 
-  let entries: Array<{ category: string; title: string; content: string; sourceUrl: string | null; confidence?: number }> = [];
-  try {
-    const jsonMatch = response.match(/\[[\s\S]*\]/);
-    if (jsonMatch) {
-      entries = JSON.parse(jsonMatch[0]);
-    }
-  } catch (parseErr) {
-    console.error("Failed to parse URL knowledge entries:", parseErr);
-  }
-
-  entries = entries.filter(e => e.title && e.content && e.category);
-  entries = entries.map(e => ({
+  const entries = parseAIJson(response, modelOutputSchemas.knowledgeEntries).map(e => ({
     ...e,
     sourceUrl: url,
     category: VALID_CATEGORIES.includes(e.category) ? e.category : (userCategory || "Platform Overview"),

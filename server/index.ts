@@ -1,3 +1,6 @@
+import { installAuth } from "./auth";
+import { securityHeaders, requestAudit, createAdmissionControl, createAnalyticsReadControl } from "./http-security";
+import { scheduleInterruptedJobRecovery } from "./job-recovery";
 import express, { type Request, Response, NextFunction } from "express";
 import path from "path";
 import { registerRoutes, setLastFeedFetchAt } from "./routes";
@@ -15,27 +18,38 @@ import { sweepRecentUntagged } from "./tag-sweep";
 
 const app = express();
 const httpServer = createServer(app);
+httpServer.requestTimeout = 120_000;
+httpServer.headersTimeout = 15_000;
 
-declare module "http" {
-  interface IncomingMessage {
-    rawBody: unknown;
-  }
-}
+const startedAt = new Date();
+let recoveryScheduled = false;
+app.disable("x-powered-by");
+app.set("trust proxy", 1);
+app.use(securityHeaders);
+app.use(requestAudit((line) => console.log(line)));
 
-app.use(
-  express.json({
-    limit: "500mb",
-    verify: (req, _res, buf) => {
-      req.rawBody = buf;
-    },
-  }),
-);
-
-app.use(express.urlencoded({ extended: false }));
-
-app.use("/slide-images", express.static(
-  path.resolve("public", "slide-images")
-));
+app.get("/healthz", async (_req, res) => {
+  try {
+    const readinessQuery = { text: "SELECT (SELECT count(*) FROM auth_sessions WHERE false), (SELECT count(*) FROM ai_daily_budget WHERE false), (SELECT delivery_payload FROM briefs WHERE false), (SELECT id FROM articles WHERE false)", query_timeout: 3000 };
+    await pool.query(readinessQuery);
+    if (!recoveryScheduled) {
+      recoveryScheduled = true;
+      scheduleInterruptedJobRecovery(startedAt);
+    }
+    res.status(200).json({ status: "ok" });
+  } catch { res.status(503).json({ status: "unavailable" }); }
+});
+const requireAuth = installAuth(app, pool);
+app.use("/api", requireAuth);
+app.use("/api/analytics", createAnalyticsReadControl());
+app.use("/slide-images", requireAuth);
+app.use("/api", createAdmissionControl(async () => {
+  const { rows } = await pool.query("SELECT count(*)::int AS count FROM processing_jobs WHERE status NOT IN ('done', 'error')");
+  return rows[0].count;
+}));
+app.use(express.json({ limit: "2mb" }));
+app.use(express.urlencoded({ extended: false, limit: "16kb" }));
+app.use("/slide-images", express.static(path.resolve("public", "slide-images"), { cacheControl: false }));
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -48,32 +62,6 @@ export function log(message: string, source = "express") {
   console.log(`${formattedTime} [${source}] ${message}`);
 }
 
-app.use((req, res, next) => {
-  const start = Date.now();
-  const path = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
-
-  const originalResJson = res.json;
-  res.json = function (bodyJson, ...args) {
-    capturedJsonResponse = bodyJson;
-    return originalResJson.apply(res, [bodyJson, ...args]);
-  };
-
-  res.on("finish", () => {
-    const duration = Date.now() - start;
-    if (path.startsWith("/api")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
-      }
-
-      log(logLine);
-    }
-  });
-
-  next();
-});
-
 (async () => {
   initializeVectorSupport().catch(err => {
     console.error("Failed to initialize vector support:", err);
@@ -83,7 +71,7 @@ app.use((req, res, next) => {
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
+    const message = status >= 500 ? "Request failed. Please retry or contact the operator." : (err.message || "Invalid request");
 
     console.error("Internal Server Error:", err);
 

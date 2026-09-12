@@ -7,8 +7,15 @@ import { gatherInputs, composeBrief } from "./composer";
 import { renderBriefEmail, renderFallbackEmail, type RenderedEmail } from "./render-email";
 import { sendEmail } from "./deliver";
 import { blog } from "./log";
+import { z } from "zod";
 
 const TICK_MS = 5 * 60 * 1000;
+const DELIVERY_RETRY_WINDOW_MS = 23 * 3600_000;
+const deliverySchema = z.object({
+  email: z.object({ subject: z.string(), html: z.string(), text: z.string() }),
+  recipients: z.array(z.string()).min(1),
+  fallback: z.boolean(),
+});
 
 export interface PipelineDeps {
   compose: typeof composeBrief;
@@ -20,6 +27,24 @@ function deps(partial: Partial<PipelineDeps> = {}): PipelineDeps {
 }
 
 async function sendStored(brief: Brief, cfg: BriefConfig, d: PipelineDeps): Promise<Brief> {
+  if (brief.status === "failed_send" && !brief.deliveryPayload) {
+    return (await storage.updateBrief(brief.id, {
+      status: "delivery_review",
+      error: "Earlier delivery has no saved idempotency state. Check the provider log before sending again.",
+    }))!;
+  }
+  if (brief.deliveryPayload) {
+    try {
+      const snapshot = deliverySchema.parse(JSON.parse(brief.deliveryPayload));
+      // Stop before the provider's 24-hour key expiry; ambiguous sends need review.
+      if (!brief.deliveryStartedAt || Date.now() - brief.deliveryStartedAt.getTime() >= DELIVERY_RETRY_WINDOW_MS) {
+        throw new Error("Delivery retry window expired. Check the provider delivery log before manually sending again.");
+      }
+      return deliverSnapshot(brief, snapshot, d);
+    } catch (err: any) {
+      return (await storage.updateBrief(brief.id, { status: "delivery_review", error: err.message }))!;
+    }
+  }
   // Build the email first, in its own try block. A deterministic failure here
   // (corrupt stored payload, or a calendar-invalid date like "2026-13-40" reaching
   // date-fns) is NOT retryable by trying again — it will fail identically every
@@ -50,9 +75,20 @@ async function sendStored(brief: Brief, cfg: BriefConfig, d: PipelineDeps): Prom
     }))!;
   }
 
+  // Freeze recipients and content before any provider side effect. Retries after
+  // restart must use the identical request, including fallback headlines.
+  const snapshot = { email, recipients: cfg.recipients, fallback: !brief.payload };
+  const prepared = await storage.updateBrief(brief.id, {
+    deliveryPayload: JSON.stringify(snapshot), deliveryStartedAt: new Date(), status: "sending",
+  });
+  if (!prepared) throw new Error("Brief disappeared before delivery could be recorded");
+  return deliverSnapshot(prepared, snapshot, d);
+}
+
+async function deliverSnapshot(brief: Brief, snapshot: z.infer<typeof deliverySchema>, d: PipelineDeps): Promise<Brief> {
   try {
-    await d.send(email, cfg.recipients);
-    const status = brief.payload ? "sent" : "sent_fallback";
+    await d.send(snapshot.email, snapshot.recipients, { idempotencyKey: `morning-brief/${brief.id}` });
+    const status = snapshot.fallback ? "sent_fallback" : "sent";
     blog(`brief ${brief.id} (${brief.briefDate}) ${status}`);
     return (await storage.updateBrief(brief.id, { status, sentAt: new Date(), error: null }))!;
   } catch (err: any) {

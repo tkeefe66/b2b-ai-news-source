@@ -1,6 +1,6 @@
 import { build as esbuild } from "esbuild";
 import { build as viteBuild } from "vite";
-import { rm, readFile } from "fs/promises";
+import { rm, readFile, copyFile } from "fs/promises";
 
 // server deps to bundle to reduce openat(2) syscalls
 // which helps cold start times
@@ -19,7 +19,6 @@ const allowlist = [
   "memorystore",
   "multer",
   "nanoid",
-  "pdf-parse",
   "nodemailer",
   "@anthropic-ai/sdk",
   "passport",
@@ -61,6 +60,9 @@ async function buildAll() {
     external: externals,
     logLevel: "info",
   });
+  // Keep pdf-parse external: its CJS entry resolves its own PDF.js worker assets.
+  // The parser runs in a bounded child process beside the production server bundle.
+  await copyFile("server/pdf-worker.cjs", "dist/pdf-worker.cjs");
 }
 
 buildAll().catch((err) => {

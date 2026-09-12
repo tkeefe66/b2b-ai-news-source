@@ -1,13 +1,17 @@
+import { assertCompletion } from "./model-output";
+import { acquireAiPermit } from "./ai-budget";
 import { GoogleGenAI } from "@google/genai";
 import Anthropic from "@anthropic-ai/sdk";
 import { report } from "./usage.js";
 
 const gemini = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY!,
+  httpOptions: { timeout: 120000, retryOptions: { attempts: 1 } },
 });
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
+  timeout: 120000, maxRetries: 0,
 });
 
 export const AVAILABLE_MODELS = [
@@ -41,6 +45,11 @@ export async function chatCompletion({
   maxTokens?: number;
   jsonMode?: boolean;
 }): Promise<string> {
+  model = resolveModel(model);
+  const release = await acquireAiPermit(messages, maxTokens);
+  const controller = new AbortController();
+  const deadline = setTimeout(() => controller.abort(), 120_000);
+  try {
   const provider = getProvider(model);
 
   if (provider === "gemini") {
@@ -55,12 +64,15 @@ export async function chatCompletion({
       model,
       contents,
       config: {
+        abortSignal: controller.signal,
         ...(systemMsg ? { systemInstruction: typeof systemMsg.content === "string" ? systemMsg.content : "" } : {}),
         maxOutputTokens: maxTokens,
         ...(jsonMode ? { responseMimeType: "application/json" as const } : {}),
       },
     });
-    return resp.text || "";
+    assertCompletion(resp.candidates?.[0]?.finishReason);
+    if (!resp.text?.trim()) throw new Error("AI returned no content. Please retry.");
+    return resp.text;
   }
 
   // Default: anthropic
@@ -91,10 +103,13 @@ export async function chatCompletion({
     messages: chatMsgs,
     max_tokens: maxTokens,
     ...(systemContent ? { system: systemContent } : {}),
-  });
+  }, { signal: controller.signal });
+  assertCompletion(resp.stop_reason);
   report("b2b-ai-news", model, resp.usage);
   const textBlock = resp.content.find((b: any) => b.type === "text");
-  return (textBlock as any)?.text || "";
+  if (!(textBlock as any)?.text?.trim()) throw new Error("AI returned no content. Please retry.");
+  return (textBlock as any).text;
+  } finally { clearTimeout(deadline); controller.abort(); release(); }
 }
 
 export async function* chatStream({
@@ -106,6 +121,11 @@ export async function* chatStream({
   messages: ChatMessage[];
   maxTokens?: number;
 }): AsyncGenerator<string> {
+  model = resolveModel(model);
+  const release = await acquireAiPermit(messages, maxTokens);
+  const controller = new AbortController();
+  const deadline = setTimeout(() => controller.abort(), 120_000);
+  try {
   const provider = getProvider(model);
 
   if (provider === "gemini") {
@@ -120,14 +140,18 @@ export async function* chatStream({
       model,
       contents,
       config: {
+        abortSignal: controller.signal,
         ...(systemMsg ? { systemInstruction: typeof systemMsg.content === "string" ? systemMsg.content : "" } : {}),
         maxOutputTokens: maxTokens,
       },
     });
+    let finishReason: unknown;
     for await (const chunk of stream) {
+      if (chunk.candidates?.[0]?.finishReason) finishReason = chunk.candidates[0].finishReason;
       const content = chunk.text || "";
       if (content) yield content;
     }
+    assertCompletion(finishReason);
     return;
   }
 
@@ -143,20 +167,23 @@ export async function* chatStream({
     messages: chatMsgs,
     max_tokens: maxTokens,
     ...(systemMsg ? { system: typeof systemMsg.content === "string" ? systemMsg.content : "" } : {}),
-  });
+  }, { signal: controller.signal });
   for await (const event of stream) {
     if (event.type === "content_block_delta" && (event.delta as any).type === "text_delta") {
       yield (event.delta as any).text;
     }
   }
-  // Usage only exists on the final message, so it is reported after the stream
-  // drains. A consumer that abandons this generator early (an HTTP client that
-  // disconnects mid-response) never reaches here, so that call's tokens go
-  // unreported -- they still cost money, and will show up as drift.
+  const final = await stream.finalMessage();
+  assertCompletion(final.stop_reason);
+  report("b2b-ai-news", model, final.usage);
+  } finally { clearTimeout(deadline); controller.abort(); release(); }
+}
+
+export async function createAnthropicMessage(input: Anthropic.MessageCreateParamsNonStreaming) {
+  const release = await acquireAiPermit(input, input.max_tokens);
   try {
-    const final = await stream.finalMessage();
-    report("b2b-ai-news", model, final.usage);
-  } catch {
-    // never let reporting break a stream that already delivered its content
-  }
+    const response = await anthropic.messages.create({ ...input, model: resolveModel(input.model) });
+    assertCompletion(response.stop_reason);
+    return response;
+  } finally { release(); }
 }

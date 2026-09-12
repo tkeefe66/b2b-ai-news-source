@@ -2891,6 +2891,7 @@ function UploadDeckCard() {
 
     try {
       let data: any;
+      if (uploadFile.size > 50 * 1024 * 1024) throw new Error("File exceeds the 50 MB upload limit");
       const useChunked = uploadFile.size > CHUNK_SIZE;
 
       if (!useChunked) {
@@ -2940,9 +2941,7 @@ function UploadDeckCard() {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                filePath: chunkResult.filePath,
-                filename: chunkResult.filename,
-                size: chunkResult.size,
+                uploadId: chunkResult.uploadId,
                 category: uploadCategory && uploadCategory !== "auto" ? uploadCategory : undefined,
               }),
             });
@@ -3122,7 +3121,7 @@ function UploadDeckCard() {
                   id="file-upload-input"
                   type="file"
                   className="hidden"
-                  accept=".pptx,.pptm,.pdf,.ppt,.docx,.txt"
+                  accept=".pptx,.pptm,.pdf,.docx,.txt"
                   onChange={(e) => {
                     const file = e.target.files?.[0];
                     if (file) setUploadFile(file);

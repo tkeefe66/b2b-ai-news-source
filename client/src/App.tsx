@@ -1,3 +1,4 @@
+import { AuthGate } from "@/components/auth-gate";
 import { lazy, Suspense } from "react";
 import { Switch, Route, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
@@ -73,6 +74,7 @@ export default function App() {
   return (
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
+        <AuthGate>
         <TooltipProvider>
           <SidebarProvider style={sidebarStyle as React.CSSProperties}>
             <a
@@ -100,6 +102,7 @@ export default function App() {
           <CommandPalette />
           <Toaster />
         </TooltipProvider>
+              </AuthGate>
       </QueryClientProvider>
     </ThemeProvider>
   );

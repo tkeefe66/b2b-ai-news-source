@@ -93,8 +93,9 @@ describe("parseBackfillResponse", () => {
     expect(parseBackfillResponse(raw, expectedIds, vocab)).toEqual([{ id: 1, tags: ["funding"] }]);
   });
 
-  it("returns [] on non-JSON garbage", () => {
-    expect(parseBackfillResponse("the model rambled", expectedIds, vocab)).toEqual([]);
+  it("rejects non-JSON garbage", () => {
+    // Mutation: convert parse errors into normal empty output.
+    expect(() => parseBackfillResponse("the model rambled", expectedIds, vocab)).toThrow();
   });
 
   it("drops entries with ids not in expectedIds", () => {
@@ -138,11 +139,16 @@ describe("parseBackfillResponse", () => {
     expect(parseBackfillResponse(raw, expectedIds, vocab)).toEqual([{ id: 1, tags: [] }]);
   });
 
-  it("drops entries with malformed fields", () => {
+  it("rejects entries with malformed fields", () => {
+    // Mutation: silently drop malformed items and report successful empty output.
     const raw = JSON.stringify([
       { id: "not-a-number", tags: ["funding"] },
       { id: 2, tags: "not-an-array" },
     ]);
-    expect(parseBackfillResponse(raw, expectedIds, vocab)).toEqual([]);
+    expect(() => parseBackfillResponse(raw, expectedIds, vocab)).toThrow();
+  });
+  it("preserves a valid empty batch", () => {
+    // Mutation: reject legitimate empty results.
+    expect(parseBackfillResponse("[]", expectedIds, vocab)).toEqual([]);
   });
 });

@@ -1,4 +1,5 @@
 import { chatCompletion } from "./ai-models";
+import { parseAIJson, modelOutputSchemas } from "./model-output";
 import type { ExtractedImage } from "./file-parser";
 import sharp from "sharp";
 
@@ -107,18 +108,10 @@ export async function analyzeImages(
         maxTokens: 2000,
       });
 
-      let parsed: Array<{ imageIndex: number; description: string }> = [];
-      try {
-        const jsonMatch = response.match(/\[[\s\S]*\]/);
-        if (jsonMatch) {
-          parsed = JSON.parse(jsonMatch[0]);
-        }
-      } catch {
-        parsed = [{ imageIndex: 0, description: response.substring(0, 500) }];
-      }
+      const parsed = parseAIJson(response, modelOutputSchemas.imageDescriptions.refine(items => items.length === batch.length && new Set(items.map(item => item.imageIndex)).size === batch.length && items.every(item => item.imageIndex < batch.length), "Expected one description per supplied image"));
 
       for (const item of parsed) {
-        const img = batch[item.imageIndex] || batch[0];
+        const img = batch[item.imageIndex];
         results.push({
           slideNum: img.slideNum,
           description: item.description,
@@ -126,12 +119,7 @@ export async function analyzeImages(
       }
     } catch (err: any) {
       console.error(`[image-analyzer] Batch ${batchIdx + 1} error:`, err.message);
-      for (const img of batch) {
-        results.push({
-          slideNum: img.slideNum,
-          description: `[Image analysis failed: ${err.message}]`,
-        });
-      }
+      throw new Error(`Image analysis failed for batch ${batchIdx + 1}. Please retry; no partial analysis was returned.`);
     }
 
     if (onProgress) {
@@ -187,6 +175,6 @@ export async function analyzeVideoFrames(
     return response;
   } catch (err: any) {
     console.error(`[image-analyzer] Video frame analysis error:`, err.message);
-    return `[Video frame analysis failed: ${err.message}]`;
+    throw new Error("Video frame analysis failed. Please retry; no analysis was returned.");
   }
 }

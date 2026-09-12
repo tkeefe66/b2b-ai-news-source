@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { parseAIJson } from "./model-output";
 
 const DESCRIPTION_MAX = 300;
 const MAX_TAGS = 6;
@@ -55,22 +56,14 @@ export function parseBackfillResponse(
   expectedIds: number[],
   vocabulary: Set<string>
 ): BackfillResult[] {
-  const stripped = raw.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(stripped);
-  } catch {
-    return [];
-  }
-  if (!Array.isArray(parsed)) return [];
+  const parsed = parseAIJson(raw, z.array(backfillEntrySchema));
 
   const allowedIds = new Set(expectedIds);
   const results: BackfillResult[] = [];
   for (const entry of parsed) {
-    const check = backfillEntrySchema.safeParse(entry);
-    if (!check.success || !allowedIds.has(check.data.id)) continue;
-    const deduped = Array.from(new Set(check.data.tags.filter((t) => vocabulary.has(t))));
-    results.push({ id: check.data.id, tags: deduped.slice(0, MAX_TAGS) });
+    if (!allowedIds.has(entry.id)) continue;
+    const deduped = Array.from(new Set(entry.tags.filter((t) => vocabulary.has(t))));
+    results.push({ id: entry.id, tags: deduped.slice(0, MAX_TAGS) });
   }
   return results;
 }

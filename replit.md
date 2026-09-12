@@ -47,7 +47,7 @@ Integrates Gemini 2.5 Flash (via Replit AI Integrations) for brand-compliant con
 A `MarkdownRenderer.tsx` component is used across the application for consistent markdown formatting.
 
 **File Processing Pipeline:**
-A unified, database-backed processing queue (`processing_jobs` table) handles file uploads up to 250MB for various types (PPTX, PDF, DOCX, TXT, images, videos). It supports asynchronous processing, progress tracking, and UI display of active and recent jobs. The pipeline includes text extraction, image/video frame extraction, and AI vision analysis using Claude Sonnet 4.6 for descriptions.
+A unified, database-backed processing queue (`processing_jobs` table) handles file uploads up to 50MB for various types (PPTX, PDF, DOCX, TXT, images, videos). It supports asynchronous processing, progress tracking, and UI display of active and recent jobs. The pipeline includes text extraction, image/video frame extraction, and AI vision analysis using Claude Sonnet 4.6 for descriptions.
 
 ## External Dependencies
 
@@ -59,3 +59,13 @@ A unified, database-backed processing queue (`processing_jobs` table) handles fi
 -   **`pdf-parse`:** For extracting text from PDF files.
 -   **`jszip`:** For PPTX extraction.
 -   **`ffmpeg` (system):** For video frame extraction.
+## Security and release controls (2026-09-12)
+
+- **Private workspace:** Google sign-in accepts only verified emails in `ALLOWED_EMAILS`. Every approved account is a trusted workspace administrator; this is not a tenant-isolated SaaS. Server-side PostgreSQL sessions expire absolutely after 8 hours. Unsafe API methods require the configured same-origin header. Missing auth configuration denies business API access.
+- **Uploads:** Completed chunk uploads use owner-bound one-use IDs; client filesystem paths are rejected. Uploads are capped at 50MB, chunks at 6MB, and pending manifests expire after 30 minutes. Office extraction caps actual expanded bytes; PDF parsing uses a separate process with a 30-second kill deadline, 128MB V8 heap and sampled Linux RSS guard.
+- **Outbound content:** RSS, knowledge URLs and research crawling use the shared public-address/DNS-pinned fetcher with redirect revalidation, total deadline and response-byte limits.
+- **Admission and AI:** Concurrent writes/background jobs and analytics ranges are bounded. AI calls reserve durable daily input-byte-plus-output-token units and call counts before provider work. These are conservative admission limits, not dollar estimates or actual usage. Provider timeouts, explicit completion checks and structured-result validation prevent incomplete content from being silently saved.
+- **Recovery and delivery:** Interrupted jobs become explicit retryable failures after a 30-second handoff grace following first readiness; recovery retries database failures up to five times. This assumes the configured single replica and zero handoff overlap, not distributed worker fencing. Morning Brief persists a delivery snapshot and stable provider idempotency key; ambiguous deliveries older than 23 hours require review.
+- **Logs and caches:** Request logs contain route templates/status/timing only. Protected images and API responses are excluded from service-worker caching; sign-out clears browser query state.
+- **Release:** `railway.json` builds with npm ci, typecheck, tests and bundle compilation; build performs no schema push. Apply reviewed additive SQL in `script/security-auth.sql`, `script/security-budget.sql`, and `script/migrations/2026-09-12-brief-delivery.sql` before deploying this release. `/healthz` checks required database schema with a short deadline. Keep one replica with no rolling overlap until jobs have cross-process leases.
+- **Configuration:** Set APP_BASE_URL, AUTH_GOOGLE_CLIENT_ID, AUTH_GOOGLE_CLIENT_SECRET, ALLOWED_EMAILS and a randomly generated SESSION_SECRET in Railway; authorize APP_BASE_URL + `/api/auth/google/callback` in Google. Drive OAuth is separate. See `.env.example` for AI admission knobs.

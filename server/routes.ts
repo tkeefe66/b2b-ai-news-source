@@ -1,3 +1,5 @@
+import { safeFetch } from "./safe-fetch";
+import { parseAIJson, modelOutputSchemas } from "./model-output";
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
@@ -8,13 +10,11 @@ import { insertSourceSchema, insertKnowledgeEntrySchema, insertPendingKnowledgeS
 import { mergeQueueTags } from "./tag-queue";
 import { annotateTags } from "./tag-annotator";
 import { z } from "zod";
-import Anthropic from "@anthropic-ai/sdk";
-import { GoogleGenAI } from "@google/genai";
-import { AVAILABLE_MODELS, chatCompletion, chatStream, resolveModel } from "./ai-models";
+import { AVAILABLE_MODELS, chatCompletion, chatStream, resolveModel, createAnthropicMessage } from "./ai-models";
 import { report } from "./usage.js";
 import { searchRelevantArticles, getSearchStats, updateSearchVectors } from "./embeddings";
 import { getDemandbaseContext, getProductKnowledgeContext, DEMANDBASE_CONTEXT } from "./demandbase-context";
-import { upload, chunkUpload, handleChunkUpload, extractTextFromFile, extractTextAndImagesFromFile, extractFramesFromVideo, processFileToKnowledge, processUrlToKnowledge, saveExtractedEntries, cleanupTempFile, type ExtractedImage } from "./file-parser";
+import { upload, chunkUpload, handleChunkUpload, consumeUploadedFile, extractTextFromFile, extractTextAndImagesFromFile, extractFramesFromVideo, processFileToKnowledge, processUrlToKnowledge, saveExtractedEntries, cleanupTempFile, type ExtractedImage } from "./file-parser";
 import { analyzeImages, analyzeVideoFrames } from "./image-analyzer";
 import fs from "fs";
 import sharp from "sharp";
@@ -51,44 +51,6 @@ function parseMarkdownToSlides(markdown: string): Array<{ title: string; body: s
   return slides.length > 0 ? slides : [{ title: "Slide", body: markdown.substring(0, 500) }];
 }
 
-function parseAIJson(text: string | null | undefined): any {
-  let cleaned = (text || "{}").trim();
-  if (cleaned.startsWith("```")) {
-    cleaned = cleaned.replace(/^```(?:json)?\s*\n?/, "").replace(/\n?\s*```\s*$/, "");
-  }
-  try {
-    return JSON.parse(cleaned);
-  } catch (e) {
-    let repaired = cleaned;
-    repaired = repaired.replace(/,\s*$/, "");
-    let openBrackets = 0, openBraces = 0;
-    for (const ch of repaired) {
-      if (ch === '[') openBrackets++;
-      else if (ch === ']') openBrackets--;
-      else if (ch === '{') openBraces++;
-      else if (ch === '}') openBraces--;
-    }
-    const lastComplete = Math.max(repaired.lastIndexOf('},'), repaired.lastIndexOf('}]'));
-    if (lastComplete > 0) {
-      repaired = repaired.substring(0, lastComplete + 1);
-      openBrackets = 0; openBraces = 0;
-      for (const ch of repaired) {
-        if (ch === '[') openBrackets++;
-        else if (ch === ']') openBrackets--;
-        else if (ch === '{') openBraces++;
-        else if (ch === '}') openBraces--;
-      }
-    }
-    repaired += ']'.repeat(Math.max(0, openBrackets)) + '}'.repeat(Math.max(0, openBraces));
-    try {
-      console.log(`[parseAIJson] Repaired truncated JSON (original length: ${cleaned.length}, repaired: ${repaired.length})`);
-      return JSON.parse(repaired);
-    } catch (e2) {
-      throw e;
-    }
-  }
-}
-
 const NO_DASH_RULE = `
 WRITING STYLE RULE (STRICTLY ENFORCED): Never use a hyphen "-", double-hyphen "--", em-dash "—", or en-dash "–" to connect or bridge clauses or sentences. Do not use dashes as punctuation between thoughts. Instead, use periods, commas, semicolons, colons, or parentheses to separate ideas. Hyphens in compound words (e.g., "go-to-market", "data-driven") and as bullet point markers are fine.`;
 
@@ -106,14 +68,6 @@ Every numeric value you use — percentages, multipliers, dollar amounts, growth
 - In the NOTES, list each metric used on the slide with its source: "73% stat from TechCrunch, March 2026" or "88% figure from Gartner, general industry data" or "3X conversion from Demandbase customer data"
 - If a metric comes from general knowledge (not a tracked article), note it: "Industry stat from Forrester, general industry data"
 - NEVER use a numeric metric on a slide without citing its source in the NOTES. If you cannot identify the source of a number, do not use it.`;
-
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
-
-const gemini = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY!,
-});
 
 export async function registerRoutes(
   httpServer: Server,
@@ -323,7 +277,7 @@ export async function registerRoutes(
       if (categories.length === 0) {
         return res.json({ category: "Technology" });
       }
-      const response = await anthropic.messages.create({
+      const response = await createAnthropicMessage({
         model: "claude-haiku-4-5-20251001",
         max_tokens: 20,
         system: `You are a B2B marketing and sales technology classifier. Given a topic, classify it into exactly one of these categories: ${categories.join(", ")}.
@@ -336,11 +290,12 @@ Respond with ONLY the category name, nothing else.`,
       report("b2b-ai-news", "claude-haiku-4-5-20251001", response.usage);
       const classifyBlock = response.content.find((b: any) => b.type === "text");
       const classified = (classifyBlock as any)?.text?.trim() || categories[0];
-      const category = categories.includes(classified) ? classified : categories[0];
+      if (!categories.includes(classified)) throw new Error("AI returned an invalid category. Please retry.");
+      const category = classified;
       res.json({ category });
     } catch (err) {
       console.error("Error classifying topic:", err);
-      res.json({ category: "GTM Tech" });
+      res.status(502).json({ error: "Topic classification failed. Please retry." });
     }
   });
 
@@ -986,15 +941,15 @@ ${NO_DASH_RULE}`
         ],
       });
 
-      const analysis = parseAIJson(analysisText || "{}");
+      const analysis = parseAIJson(analysisText, modelOutputSchemas.trendAnalysis);
 
-      const visualDataStr = analysis.visualData ? JSON.stringify(analysis.visualData) : null;
+      const visualDataStr = JSON.stringify(analysis.visualData);
 
       const saved = await storage.createTrendAnalysis({
-        title: analysis.title || "B2B MarTech Trend Analysis",
-        summary: analysis.summary || "Analysis unavailable",
-        keyThemes: analysis.keyThemes || [],
-        insights: analysis.insights || "No insights available",
+        title: analysis.title,
+        summary: analysis.summary,
+        keyThemes: analysis.keyThemes,
+        insights: analysis.insights,
         visualData: visualDataStr,
         articleIds: allArticles.map(a => a.id),
         model: selectedModel,
@@ -1133,12 +1088,12 @@ ${NO_DASH_RULE}`
         maxTokens: 16384,
       });
 
-      const analysis = parseAIJson(synthesisText);
+      const analysis = parseAIJson(synthesisText, modelOutputSchemas.thoughtLeadership);
 
       const saved = await storage.createThoughtLeadership({
-        title: analysis.title || "Thought Leadership Opportunities",
-        summary: analysis.summary || "Analysis unavailable",
-        opportunities: JSON.stringify(analysis.opportunities || []),
+        title: analysis.title,
+        summary: analysis.summary,
+        opportunities: JSON.stringify(analysis.opportunities),
         articleCount: totalArticles,
         model: selectedModel,
       });
@@ -1243,7 +1198,7 @@ Generate 5-8 questions. Make them specific to their idea, not generic. Each ques
         maxTokens: 2048,
       });
 
-      const result = parseAIJson(resultText);
+      const result = parseAIJson(resultText, modelOutputSchemas.questions);
 
       console.log(`[thought-leadership] Generated ${result.questions?.length || 0} questions for user idea`);
       res.json(result);
@@ -1336,13 +1291,13 @@ Be genuinely curious — these follow-ups should feel like a great interviewer g
         maxTokens: 1500,
       });
 
-      const result = parseAIJson(resultText);
+      const result = parseAIJson(resultText, modelOutputSchemas.followup);
 
       console.log(`[thought-leadership] Follow-up round ${round}: ${result.ready ? "ready to generate" : `${result.questions?.length || 0} follow-up questions`}`);
       res.json(result);
     } catch (err) {
       console.error("Error generating follow-up questions:", err);
-      res.json({ ready: true, questions: [] });
+      res.status(502).json({ error: "Could not generate follow-up questions. Please retry." });
     }
   });
 
@@ -1435,13 +1390,13 @@ If their answers are already rich enough to create an excellent ${contentLabel},
         maxTokens: 1500,
       });
 
-      const result = parseAIJson(resultText);
+      const result = parseAIJson(resultText, modelOutputSchemas.followup);
 
       console.log(`[thought-leadership] Content follow-up round ${round} for ${contentType}: ${result.ready ? "ready" : `${result.questions?.length || 0} follow-ups`}`);
       res.json(result);
     } catch (err) {
       console.error("Error generating content follow-up:", err);
-      res.json({ ready: true, questions: [] });
+      res.status(502).json({ error: "Could not generate content follow-up. Please retry." });
     }
   });
 
@@ -1512,7 +1467,7 @@ ${NO_DASH_RULE}`
         maxTokens: 2048,
       });
 
-      const opportunity = parseAIJson(resultText);
+      const opportunity = parseAIJson(resultText, modelOutputSchemas.opportunity);
 
       console.log(`[thought-leadership] Generated opportunity from idea + answers: "${opportunity.title}"`);
       res.json({ opportunity });
@@ -1734,7 +1689,7 @@ ${NO_DASH_RULE}`
         maxTokens: 2048,
       });
 
-      const result = parseAIJson(resultText);
+      const result = parseAIJson(resultText, modelOutputSchemas.questions);
 
       console.log(`[thought-leadership] Generated ${result.questions?.length || 0} content questions for ${contentType}: "${title}"`);
       res.json(result);
@@ -1869,18 +1824,7 @@ ${creatorAnswers.map(a => `Q: ${a.question}\nA: ${a.answer}`).join("\n\n")}` : "
   };
 
   function parsePresentationJSON(raw: string): PresentationContent {
-    try {
-      const parsed = JSON.parse(raw);
-      return {
-        headline: parsed.headline || "",
-        storyArc: parsed.storyArc || "",
-        slideOutline: Array.isArray(parsed.slideOutline) ? parsed.slideOutline : [],
-        talkTrack: parsed.talkTrack || "",
-      };
-    } catch {
-      // Fallback if JSON parse fails
-      return { headline: "", storyArc: raw, slideOutline: [], talkTrack: raw };
-    }
+    return parseAIJson(raw, modelOutputSchemas.presentation);
   }
 
   function slideOutlineToSlideData(slideOutline: PresentationContent["slideOutline"]) {
@@ -2161,8 +2105,7 @@ ${creatorAnswers.map(a => `Q: ${a.question}\nA: ${a.answer}`).join("\n\n")}` : "
         console.log(`[thought-leadership] Blog saved to Drive: ${doc.url}`);
         res.json({ url: doc.url, id: doc.id });
       } else if (type === "webinar") {
-        let slideOutline: PresentationContent["slideOutline"] = [];
-        try { slideOutline = JSON.parse(slidesContent || "[]"); } catch {}
+        const slideOutline = parseAIJson(slidesContent, modelOutputSchemas.slideOutline);
         const slidesData = slideOutlineToSlideData(slideOutline);
         const baseName = documentName;
         const [doc, slides] = await Promise.all([
@@ -2172,8 +2115,7 @@ ${creatorAnswers.map(a => `Q: ${a.question}\nA: ${a.answer}`).join("\n\n")}` : "
         console.log(`[thought-leadership] Webinar saved to Drive — Doc: ${doc.url}, Slides: ${slides.url}`);
         res.json({ docUrl: doc.url, docId: doc.id, slidesUrl: slides.url, slidesId: slides.id });
       } else if (type === "presentation") {
-        let slideOutline: PresentationContent["slideOutline"] = [];
-        try { slideOutline = JSON.parse(content); } catch {}
+        const slideOutline = parseAIJson(content, modelOutputSchemas.slideOutline);
         const slidesData = slideOutlineToSlideData(slideOutline);
         const slides = await createGoogleSlides(documentName, slidesData);
         console.log(`[thought-leadership] Presentation saved to Drive: ${slides.url}`);
@@ -2259,16 +2201,11 @@ ${creatorAnswers.map(a => `Q: ${a.question}\nA: ${a.answer}`).join("\n\n")}` : "
 
   app.post("/api/tl-documents/upload-chunked", express.json(), async (req: any, res) => {
     try {
-      const { filePath, filename, size, description } = req.body;
-      if (!filePath || !filename) {
-        return res.status(400).json({ error: "Missing filePath or filename" });
-      }
+      const { description } = req.body;
       if (!description || description.trim().length < 5) {
         return res.status(400).json({ error: "Please provide a description of what this document is (at least 5 characters)" });
       }
-      if (!fs.existsSync(filePath)) {
-        return res.status(400).json({ error: "Uploaded file not found. Please try uploading again." });
-      }
+      const { filePath, filename, size } = consumeUploadedFile(req.body.uploadId, req.auth?.email ?? req.sessionID);
       const fileSize = size || fs.statSync(filePath).size;
       const jobId = `tl_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
@@ -2330,7 +2267,7 @@ ${creatorAnswers.map(a => `Q: ${a.question}\nA: ${a.answer}`).join("\n\n")}` : "
     upload.single("file")(req, res, async (err: any) => {
       if (err) {
         if (err.code === "LIMIT_FILE_SIZE") {
-          return res.status(400).json({ error: "File is too large. Maximum size is 500MB." });
+          return res.status(400).json({ error: "File is too large. Maximum size is 50MB." });
         }
         return res.status(400).json({ error: err.message || "Upload failed" });
       }
@@ -2698,10 +2635,8 @@ ${NO_DASH_RULE}`
         jsonMode: true,
       });
 
-      const parsed = parseAIJson(result);
-      const trends = parsed.trends || [];
-      const emergingSignals = parsed.emergingSignals || [];
-      const companySentiment = parsed.companySentiment || [];
+      const parsed = parseAIJson(result, modelOutputSchemas.snapshot.refine(output => output.trends.every(trend => trend.articleIds.every(id => articles.some(article => article.id === id))), "Trend references unknown article"));
+      const { trends, emergingSignals, companySentiment } = parsed;
 
       const saved = await storage.createTrendSnapshot({
         trends: JSON.stringify(trends),
@@ -3105,21 +3040,7 @@ ${NO_DASH_RULE}`
         maxTokens: 2048,
       });
 
-      let result;
-      try {
-        result = parseAIJson(resultText);
-      } catch {
-        console.error("[enablement] Failed to parse questions JSON:", resultText?.substring(0, 200));
-        result = {
-          acknowledgment: "Let me help you with that.",
-          questions: [
-            { id: "q1", question: "Who is the target audience for this content?", why: "Helps tailor the message" },
-            { id: "q2", question: "What's the key message or outcome you want?", why: "Shapes the direction" },
-            { id: "q3", question: "Are there any competitors or specific challenges to address?", why: "Adds competitive context" },
-            { id: "q4", question: "What tone and length do you prefer?", why: "Sets creative direction" },
-          ],
-        };
-      }
+      const result = parseAIJson(resultText, modelOutputSchemas.questions);
       console.log(`[enablement] Generated ${result.questions?.length || 0} initial questions`);
       res.json(result);
     } catch (err) {
@@ -3223,18 +3144,12 @@ ${NO_DASH_RULE}`
         maxTokens: 1500,
       });
 
-      let result;
-      try {
-        result = JSON.parse(followupResultText);
-      } catch {
-        console.error("[enablement] Failed to parse follow-up JSON:", followupResultText.substring(0, 200));
-        result = { ready: true, reaction: "I have enough to work with — let me generate your content.", questions: [] };
-      }
+      const result = parseAIJson(followupResultText, modelOutputSchemas.followup);
       console.log(`[enablement] Follow-up round ${round}: ${result.ready ? "ready to generate" : `${result.questions?.length || 0} follow-up questions`}`);
       res.json(result);
     } catch (err) {
       console.error("Error generating enablement follow-up:", err);
-      res.json({ ready: true, questions: [] });
+      res.status(502).json({ error: "Could not generate enablement follow-up. Please retry." });
     }
   });
 
@@ -3814,9 +3729,9 @@ ${NO_DASH_RULE}`}`;
       }
 
       console.log(`Fetching URL for knowledge extraction: ${url}`);
-      const response = await fetch(url, {
+      const response = await safeFetch(url, {
         headers: { "User-Agent": "Mozilla/5.0 (compatible; KnowledgeBot/1.0)" },
-        signal: AbortSignal.timeout(15000),
+        timeoutMs: 15000,
       });
       if (!response.ok) {
         return res.status(400).json({ error: `Failed to fetch URL: ${response.status} ${response.statusText}` });
@@ -4065,7 +3980,7 @@ ${NO_DASH_RULE}`}`;
 
       const entrySummaries = entries.map(e => `[ID:${e.id}] Category: ${e.category} | Title: ${e.title} | Content: ${e.content.substring(0, 500)}`).join("\n\n");
 
-      const response = await anthropic.messages.create({
+      const response = await createAnthropicMessage({
         model: "claude-haiku-4-5-20251001",
         max_tokens: 4000,
         system: `You are a knowledge base quality analyst. Analyze the provided knowledge entries for issues that could cause AI hallucinations or bad content generation. ${NO_DASH_RULE}
@@ -4110,9 +4025,9 @@ Respond with valid JSON only, no markdown fences.`,
       report("b2b-ai-news", "claude-haiku-4-5-20251001", response.usage);
       const reviewBlock = response.content.find((b: any) => b.type === "text");
       const content = (reviewBlock as any)?.text || "{}";
-      const parsed = parseAIJson(content);
-      const conflictsData = parsed.conflicts || [];
-      const suggestionsData = parsed.suggestions || [];
+      const parsed = parseAIJson(content, modelOutputSchemas.knowledgeReview.refine(output => [...output.conflicts,...output.suggestions].every(item => item.entryIds.every(id => entries.some(entry => entry.id === id))), "Review references unknown entry"));
+      const conflictsData = parsed.conflicts;
+      const suggestionsData = parsed.suggestions;
 
       const review = await storage.createKnowledgeReview({
         conflicts: JSON.stringify(conflictsData),
@@ -4232,7 +4147,7 @@ ${userReason}`
 
       const sysMsg = messages.find(m => m.role === "system");
       const chatMsgs = messages.filter(m => m.role !== "system");
-      const response = await anthropic.messages.create({
+      const response = await createAnthropicMessage({
         model: "claude-haiku-4-5-20251001",
         max_tokens: 3000,
         ...(sysMsg ? { system: sysMsg.content } : {}),
@@ -4241,7 +4156,7 @@ ${userReason}`
       report("b2b-ai-news", "claude-haiku-4-5-20251001", response.usage);
       const responseBlock = response.content.find((b: any) => b.type === "text");
       const content = (responseBlock as any)?.text || "{}";
-      const result = parseAIJson(content);
+      const result = parseAIJson(content, modelOutputSchemas.knowledgeResolution.refine(output => output.needsClarification || output.deleteIds.every(id => entryIds.includes(id)), "Resolution references unknown entry"));
 
       if (result.needsClarification) {
         return res.json({
@@ -4316,17 +4231,12 @@ ${NO_DASH_RULE}`
           jsonMode: true,
         });
 
-        let parsed;
-        try {
-          parsed = JSON.parse(merged);
-        } catch {
-          return res.status(500).json({ error: "AI returned invalid JSON" });
-        }
+        const parsed = parseAIJson(merged, modelOutputSchemas.consolidation);
 
         return res.json({
           preview: true,
           title: parsed.title,
-          category: parsed.category || validEntries[0]!.category,
+          category: parsed.category,
           content: parsed.content,
         });
       }
@@ -4387,18 +4297,13 @@ ${NO_DASH_RULE}`
           jsonMode: true,
         });
 
-        let parsed;
-        try {
-          parsed = JSON.parse(rewritten);
-        } catch {
-          return res.status(500).json({ error: "AI returned invalid JSON" });
-        }
+        const parsed = parseAIJson(rewritten, modelOutputSchemas.rewrite);
 
         return res.json({
           preview: true,
           entryId,
-          title: parsed.title || entry.title,
-          content: parsed.content || entry.content,
+          title: parsed.title,
+          content: parsed.content,
         });
       }
 
@@ -4481,13 +4386,8 @@ ${NO_DASH_RULE}`
 
   app.post("/api/knowledge/upload-chunked", express.json(), async (req: any, res) => {
     try {
-      const { filePath, filename, size, category: rawCat } = req.body;
-      if (!filePath || !filename) {
-        return res.status(400).json({ error: "Missing filePath or filename" });
-      }
-      if (!fs.existsSync(filePath)) {
-        return res.status(400).json({ error: "Uploaded file not found. Please try uploading again." });
-      }
+      const { category: rawCat } = req.body;
+      const { filePath, filename, size } = consumeUploadedFile(req.body.uploadId, req.auth?.email ?? req.sessionID);
       const category = rawCat || undefined;
       const ext = filename.toLowerCase().split(".").pop() || "";
       const isVideo = ["mp4", "mov", "avi", "webm"].includes(ext);
@@ -4604,7 +4504,7 @@ ${NO_DASH_RULE}`
     upload.single("file")(req, res, (err: any) => {
       if (err) {
         if (err.code === "LIMIT_FILE_SIZE") {
-          return res.status(400).json({ error: "File is too large. Maximum size is 500MB." });
+          return res.status(400).json({ error: "File is too large. Maximum size is 50MB." });
         }
         return res.status(400).json({ error: err.message || "File upload failed" });
       }
@@ -4760,7 +4660,7 @@ ${NO_DASH_RULE}`
     upload.single("file")(req, res, (err: any) => {
       if (err) {
         if (err.code === "LIMIT_FILE_SIZE") {
-          return res.status(400).json({ error: "File is too large. Maximum size is 500MB." });
+          return res.status(400).json({ error: "File is too large. Maximum size is 50MB." });
         }
         return res.status(400).json({ error: err.message || "File upload failed" });
       }
@@ -4989,27 +4889,22 @@ ${NO_DASH_RULE}` },
         return;
       }
 
-      let parsed: any;
+      let parsed: z.infer<typeof modelOutputSchemas.companyAnalysis>;
       try {
-        parsed = parseAIJson(content);
+        parsed = parseAIJson(content, modelOutputSchemas.companyAnalysis);
       } catch {
         res.write(`data: ${JSON.stringify({ type: "error", error: "Failed to parse analysis" })}\n\n`);
         res.end();
         return;
       }
 
-      const safeStr = (val: unknown, fallback = ""): string =>
-        typeof val === "string" && val.trim() ? val.trim() : fallback;
-      const safeArr = (val: unknown): string[] =>
-        Array.isArray(val) ? val.filter((s): s is string => typeof s === "string") : [];
-
-      const validatedName = safeStr(parsed.companyName, companyName);
-      const validatedOutlook = safeStr(parsed.financialOutlook, "No financial outlook data available.");
-      const validatedStrategy = safeStr(parsed.strategicDirection, "No strategic direction data available.");
-      const validatedGrowth = safeStr(parsed.growthSignals, "No growth signal data available.");
-      const validatedRisks = safeStr(parsed.risksAndChallenges, "No risks data available.");
-      const validatedOpp = safeStr(parsed.demandbaseOpportunity, "No opportunity assessment available.");
-      const validatedSources = safeArr(parsed.sourcesUsed);
+      const validatedName = parsed.companyName;
+      const validatedOutlook = parsed.financialOutlook;
+      const validatedStrategy = parsed.strategicDirection;
+      const validatedGrowth = parsed.growthSignals;
+      const validatedRisks = parsed.risksAndChallenges;
+      const validatedOpp = parsed.demandbaseOpportunity;
+      const validatedSources = parsed.sourcesUsed;
 
       const fullAnalysis = `# ${validatedName} Analysis${parsed.ticker ? ` (${parsed.ticker})` : ""}
 
@@ -5679,20 +5574,10 @@ ${NO_DASH_RULE}`;
         jsonMode: true,
       });
 
-      let proposal;
-      try {
-        proposal = JSON.parse(raw);
-      } catch {
-        return res.status(500).json({ error: "AI returned invalid JSON" });
-      }
-
-      if (!proposal.explanation || !proposal.proposedDesignNotes) {
-        return res.status(500).json({ error: "AI response missing required fields" });
-      }
-
-      const finalTitle = (proposal.proposedSampleTitle || "").trim() || sampleTitle;
-      const finalBody = (proposal.proposedSampleBody || "").trim() || sampleBody;
-      const finalNotes = (proposal.proposedDesignNotes || "").trim() || designNotes;
+      const proposal = parseAIJson(raw, modelOutputSchemas.slideProposal);
+      const finalTitle = proposal.proposedSampleTitle;
+      const finalBody = proposal.proposedSampleBody;
+      const finalNotes = proposal.proposedDesignNotes;
 
       res.json({
         layoutId,
@@ -5860,7 +5745,7 @@ ${NO_DASH_RULE}`;
         .grayscale()
         .raw()
         .toBuffer();
-      const avg = pixels.reduce((sum, v) => sum + v, 0) / pixels.length;
+      const avg = pixels.reduce((sum: number, v: number) => sum + v, 0) / pixels.length;
       let hash = "";
       for (let i = 0; i < pixels.length; i++) {
         hash += pixels[i] >= avg ? "1" : "0";
@@ -6051,7 +5936,7 @@ Analyze this single slide screenshot. Identify its visual design pattern and pro
 
     console.log(`[deck:${jobId}] Processing ${uniqueImages.length} unique images in ${batches.length} batch(es)`);
 
-    let allDesigns: any[] = [];
+    const allDesigns: z.infer<typeof modelOutputSchemas.slideDesigns> = [];
 
     for (let batchIdx = 0; batchIdx < batches.length; batchIdx++) {
       const batch = batches[batchIdx];
@@ -6093,46 +5978,25 @@ Analyze this single slide screenshot. Identify its visual design pattern and pro
         maxTokens: 12000,
       });
 
-      let batchDesigns: any[] = [];
-      try {
-        const jsonMatch = aiContent.match(/\[[\s\S]*\]/);
-        if (jsonMatch) {
-          batchDesigns = JSON.parse(jsonMatch[0]);
-        }
-      } catch (parseErr: any) {
-        console.warn(`[deck:${jobId}] Batch ${batchIdx + 1} JSON parse failed: ${parseErr.message}`);
-        batchDesigns = [{ name: "Analysis Result", description: aiContent, isNew: false, existingLayoutId: "content", designDetails: aiContent, suggestedChanges: "", sampleTitle: "Slide Title", sampleBody: "Content from deck analysis", slideNums: batch.map(b => b.slideNum) }];
-      }
+      const batchDesigns = parseAIJson(aiContent, modelOutputSchemas.slideDesigns.refine(designs => designs.every(design => design.slideNums.every(n => batch.some(image => image.slideNum === n))), "Design references unknown slide"));
 
       allDesigns.push(...batchDesigns);
     }
 
-    if (allDesigns.length === 0 && text.trim().length > 50) {
-      allDesigns = [{ name: "Deck Analysis", description: "Design patterns could not be extracted automatically.", isNew: false, existingLayoutId: "content", designDetails: "", suggestedChanges: "", sampleTitle: "Analysis Result", sampleBody: "Review the design details for more information", slideNums: [] }];
-    }
-
-    const seen = new Map<string, any>();
+    const seen = new Map<string, z.infer<typeof modelOutputSchemas.slideDesigns>[number]>();
     for (const d of allDesigns) {
-      const layoutId = (d.existingLayoutId || "content").toLowerCase().trim();
-      const nameNorm = (d.name || "").toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim();
+      const layoutId = d.existingLayoutId;
+      const nameNorm = d.name.toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim();
       const key = layoutId + ":" + nameNorm;
       if (!seen.has(key)) {
         seen.set(key, d);
       } else {
-        const existing = seen.get(key);
-        existing.slideNums = [...(existing.slideNums || []), ...(d.slideNums || [])];
+        const existing = seen.get(key)!;
+        existing.slideNums = [...existing.slideNums, ...d.slideNums];
       }
     }
     const designs = Array.from(seen.values());
     console.log(`[deck] Post-AI dedup: ${allDesigns.length} -> ${designs.length} unique designs`);
-
-    for (const d of designs) {
-      if (!d.existingLayoutId) d.existingLayoutId = "content";
-      if (!d.sampleTitle) d.sampleTitle = d.name || "Slide Title";
-      if (!d.sampleBody) d.sampleBody = d.description || "- Sample body text";
-      if (!d.designNotes) d.designNotes = d.designDetails || "";
-      delete d.originalThumbnail;
-    }
 
     return { designs };
   }
@@ -6151,7 +6015,7 @@ Analyze this single slide screenshot. Identify its visual design pattern and pro
       if (!result.complete) {
         return res.json({ complete: false });
       }
-      return res.json({ complete: true, filePath: result.filePath, filename: result.filename, size: result.size });
+      return res.json(result);
     } catch (err: any) {
       console.error(`[chunked-upload] Error:`, err.message);
       return res.status(400).json({ error: err.message });
@@ -6160,13 +6024,8 @@ Analyze this single slide screenshot. Identify its visual design pattern and pro
 
   app.post("/api/slide-outlines/analyze-deck-chunked", express.json(), async (req: any, res) => {
     try {
-      const { filePath, filename, size, model } = req.body;
-      if (!filePath || !filename) {
-        return res.status(400).json({ error: "Missing filePath or filename" });
-      }
-      if (!fs.existsSync(filePath)) {
-        return res.status(400).json({ error: "Uploaded file not found. Please try uploading again." });
-      }
+      const { model } = req.body;
+      const { filePath, filename, size } = consumeUploadedFile(req.body.uploadId, req.auth?.email ?? req.sessionID);
       const originalname = filename;
       const selectedModel = resolveModel(model || "claude-sonnet-4-6");
       if (!originalname.toLowerCase().endsWith(".pptx")) {
@@ -6229,7 +6088,7 @@ Analyze this single slide screenshot. Identify its visual design pattern and pro
       if (err) {
         console.error(`[deck-upload] Multer error: ${err.code || 'unknown'} - ${err.message}`);
         if (err.code === "LIMIT_FILE_SIZE") {
-          return res.status(413).json({ error: "File is too large. Maximum size is 500MB." });
+          return res.status(413).json({ error: "File is too large. Maximum size is 50MB." });
         }
         return res.status(400).json({ error: err.message || "File upload failed" });
       }
@@ -6317,7 +6176,7 @@ Analyze this single slide screenshot. Identify its visual design pattern and pro
     upload.single("file")(req, res, (err: any) => {
       if (err) {
         if (err.code === "LIMIT_FILE_SIZE") {
-          return res.status(400).json({ error: "File is too large. Maximum size is 500MB." });
+          return res.status(400).json({ error: "File is too large. Maximum size is 50MB." });
         }
         return res.status(400).json({ error: err.message || "File upload failed" });
       }
@@ -6360,22 +6219,7 @@ Analyze this single slide screenshot. Identify its visual design pattern and pro
         ],
         maxTokens: 3000,
       });
-      let designs: any[] = [];
-      try {
-        const jsonMatch = aiContent.match(/\[[\s\S]*\]/);
-        if (jsonMatch) {
-          designs = JSON.parse(jsonMatch[0]);
-        }
-      } catch {
-        designs = [{ name: "Screenshot Analysis", description: aiContent, isNew: false, existingLayoutId: "content", designDetails: aiContent, designNotes: "", suggestedChanges: "", sampleTitle: "Slide Title", sampleBody: "- Sample content", slideNums: [] }];
-      }
-
-      for (const d of designs) {
-        if (!d.existingLayoutId) d.existingLayoutId = "content";
-        if (!d.sampleTitle) d.sampleTitle = d.name || "Slide Title";
-        if (!d.sampleBody) d.sampleBody = d.description || "- Sample body text";
-        if (!d.designNotes) d.designNotes = d.designDetails || "";
-      }
+      const designs = parseAIJson(aiContent, modelOutputSchemas.slideDesigns);
 
       res.json({ filename: originalname, designs });
     } catch (err) {
@@ -6721,8 +6565,9 @@ Analyze this single slide screenshot. Identify its visual design pattern and pro
 
       const { runCrawl } = await import("./crawler");
       (async () => {
+        let updateProgress: ReturnType<typeof setInterval> | undefined;
         try {
-          const updateProgress = setInterval(async () => {
+          updateProgress = setInterval(async () => {
             try {
               const latest = await storage.getCrawlJob(job.id);
               if (!latest || latest.status !== "crawling") { clearInterval(updateProgress); return; }
@@ -6750,7 +6595,7 @@ Analyze this single slide screenshot. Identify its visual design pattern and pro
             error: err.message || "Crawl failed",
             completedAt: new Date(),
           } as any);
-        }
+        } finally { if (updateProgress) clearInterval(updateProgress); }
       })();
 
       res.json(job);
@@ -6867,14 +6712,7 @@ Return ONLY valid JSON, no markdown fences.`
                 maxTokens: 4000,
               });
 
-              let entries: Array<{ category: string; title: string; content: string }> = [];
-              try {
-                const cleaned = extractionResult.replace(/```json\n?|\n?```/g, "").trim();
-                entries = JSON.parse(cleaned);
-                if (!Array.isArray(entries)) entries = [];
-              } catch {
-                entries = [];
-              }
+              const entries = parseAIJson(extractionResult, modelOutputSchemas.crawlEntries);
 
               for (const entry of entries) {
                 if (entry.title && entry.content && entry.category) {
@@ -6904,7 +6742,7 @@ Return ONLY valid JSON, no markdown fences.`
 
             } catch (pageErr: any) {
               console.error(`Error extracting page ${page.id}:`, pageErr);
-              pagesProcessed++;
+              throw new Error(`Knowledge extraction failed on page ${page.id}. Previously extracted entries are retained; retry this extraction.`);
             }
           }
 

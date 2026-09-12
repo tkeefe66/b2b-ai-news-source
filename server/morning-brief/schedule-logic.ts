@@ -66,6 +66,7 @@ export function nextAction(
     case "failed_compose":
       return existing.attempts < maxAttempts ? "compose" : "fallback";
     case "composed":
+    case "sending":
     case "failed_send":
       return "send";
     case "sent":

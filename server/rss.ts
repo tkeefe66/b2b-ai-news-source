@@ -1,3 +1,4 @@
+import { safeFetch } from "./safe-fetch";
 import RSSParser from "rss-parser";
 import { storage } from "./storage";
 import { pool } from "./db";
@@ -72,7 +73,9 @@ async function checkAndRemoveFailingSources(): Promise<string[]> {
 export async function fetchFeedArticles(sourceId: number, feedUrl: string, sourceName: string, category: string): Promise<number> {
   let added = 0;
   try {
-    const feed = await parser.parseURL(feedUrl);
+    const response = await safeFetch(feedUrl, { timeoutMs: 20000, maxBytes: 4 * 1024 * 1024 });
+    if (!response.ok) throw new Error(`Feed request failed: HTTP ${response.status}`);
+    const feed = await parser.parseString(await response.text());
     for (const item of feed.items.slice(0, 20)) {
       if (!item.link || !item.title) continue;
 

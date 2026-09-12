@@ -12,20 +12,20 @@ export interface EmailClient {
     subject: string;
     html: string;
     text: string;
-  }): Promise<{ data: { id: string } | null; error: { message: string } | null }>;
+  }, options: { idempotencyKey: string }): Promise<{ data: { id: string } | null; error: { message: string } | null }>;
 }
 
 function resendClient(): EmailClient {
   const resend = new Resend(process.env.RESEND_API_KEY);
   return {
-    send: args => resend.emails.send(args) as ReturnType<EmailClient["send"]>,
+    send: (args, options) => resend.emails.send(args, options) as ReturnType<EmailClient["send"]>,
   };
 }
 
 export async function sendEmail(
   email: RenderedEmail,
   to: string[],
-  deps: { client?: EmailClient; retries?: number } = {},
+  deps: { idempotencyKey: string; client?: EmailClient; retries?: number },
 ): Promise<{ id: string }> {
   const client = deps.client ?? resendClient();
   const retries = deps.retries ?? 3;
@@ -38,7 +38,7 @@ export async function sendEmail(
           subject: email.subject,
           html: email.html,
           text: email.text,
-        });
+        }, { idempotencyKey: deps.idempotencyKey });
         if (error || !data) {
           throw new Error(error?.message || "Resend returned no data");
         }

@@ -17,6 +17,8 @@ const STATUS_LABEL: Record<string, { label: string; variant: "default" | "second
   sent: { label: "Sent", variant: "default" },
   sent_fallback: { label: "Fallback sent", variant: "secondary" },
   composed: { label: "Composed", variant: "secondary" },
+  sending: { label: "Sending", variant: "secondary" },
+  delivery_review: { label: "Delivery needs review", variant: "destructive" },
   pending: { label: "Pending", variant: "outline" },
   failed_compose: { label: "Compose failed", variant: "destructive" },
   failed_send: { label: "Send failed", variant: "destructive" },
@@ -55,7 +57,7 @@ function PayloadView({ payload }: { payload: BriefPayload }) {
               <p className="text-sm mt-1">{s.whyItMatters}</p>
               {s.dbAngle && (
                 <div className="mt-2 rounded-md border border-sunset/40 bg-sunset/10 px-3 py-2">
-                  <span className="text-[11px] font-bold uppercase tracking-wide text-sunset">
+                  <span className="text-xs font-bold uppercase tracking-wide text-sunset">
                     Demandbase angle{s.dbAngle.strength === "moderate" ? " (moderate)" : ""}
                   </span>
                   <p className="text-sm mt-0.5">{s.dbAngle.text}</p>
@@ -121,7 +123,13 @@ export default function MorningBrief({ embedded = false }: { embedded?: boolean 
   const { toast } = useToast();
   const [selectedId, setSelectedId] = useState<number | null>(null);
 
-  const { data: briefs, isLoading } = useQuery<Brief[]>({ queryKey: ["/api/briefs"] });
+  const { data: briefs, isLoading } = useQuery<Brief[]>({
+    queryKey: ["/api/briefs"],
+    refetchInterval: query => query.state.data?.some(brief =>
+      ["pending", "composed", "sending", "failed_compose", "failed_send"].includes(brief.status)
+      && Date.now() - new Date(brief.createdAt).getTime() < 24 * 3600_000,
+    ) ? 5000 : false,
+  });
 
   const sendNow = useMutation({
     mutationFn: async () => {
@@ -134,6 +142,7 @@ export default function MorningBrief({ embedded = false }: { embedded?: boolean 
       toast({ title: "Test brief sent", description: "Check your inbox." });
     },
     onError: (err: Error) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/briefs"] });
       toast({ title: "Send failed", description: err.message, variant: "destructive" });
     },
   });
@@ -214,6 +223,18 @@ export default function MorningBrief({ embedded = false }: { embedded?: boolean 
               })}
             </div>
             <Card className="p-5">
+              {selected?.status === "sending" && (
+                <p role="status" className="mb-4 text-sm text-muted-foreground">
+                  Sending this brief. Delivery has not been confirmed yet.
+                </p>
+              )}
+              {selected?.status === "delivery_review" && (
+                <div role="alert" className="mb-4 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
+                  <p className="font-medium">Delivery needs review</p>
+                  <p className="mt-1">This email may already have been delivered. Ask the operator to check the email delivery log before sending another copy.</p>
+                  {selected.error && <p className="mt-2 text-muted-foreground">{selected.error}</p>}
+                </div>
+              )}
               {selected && payload ? (
                 <PayloadView payload={payload} />
               ) : selected ? (
@@ -221,7 +242,7 @@ export default function MorningBrief({ embedded = false }: { embedded?: boolean 
                   <AlertTriangle className="h-4 w-4 mt-0.5 text-amber-500" />
                   <div>
                     <p className="font-medium text-foreground">No composed content for this brief.</p>
-                    <p className="mt-1">Status: {selected.status}{selected.error ? ` — ${selected.error}` : ""}</p>
+                    <p className="mt-1">Status: {STATUS_LABEL[selected.status]?.label ?? selected.status}{selected.error && selected.status !== "delivery_review" ? ` — ${selected.error}` : ""}</p>
                   </div>
                 </div>
               ) : null}

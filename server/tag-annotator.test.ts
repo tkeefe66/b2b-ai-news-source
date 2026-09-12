@@ -46,20 +46,26 @@ describe("parseAnnotationResponse", () => {
       { name: "m&a", summary: "S", suggestion: "approve" },
     ]);
   });
-  it("drops entries with unknown names, bad suggestions, or missing fields", () => {
+  it("rejects bad suggestions and missing fields instead of returning empty success", () => {
+    // Mutation: silently drop structurally malformed model output.
     const raw = JSON.stringify([
       { name: "hacked", summary: "S", suggestion: "approve" },
       { name: "m&a", summary: "S", suggestion: "promote" },
       { name: "cars", suggestion: "reject" },
     ]);
-    expect(parseAnnotationResponse(raw, expected)).toEqual([]);
+    expect(() => parseAnnotationResponse(raw, expected)).toThrow();
   });
   it("clamps summaries to 160 chars", () => {
     const raw = JSON.stringify([{ name: "m&a", summary: "x".repeat(300), suggestion: "approve" }]);
     expect(parseAnnotationResponse(raw, expected)[0].summary).toHaveLength(160);
   });
-  it("returns [] on non-JSON garbage", () => {
-    expect(parseAnnotationResponse("the model rambled", expected)).toEqual([]);
+  it("rejects non-JSON garbage", () => {
+    // Mutation: convert parse errors into normal empty output.
+    expect(() => parseAnnotationResponse("the model rambled", expected)).toThrow();
+  });
+  it("preserves a valid empty annotation response", () => {
+    // Mutation: conflate valid [] with malformed input.
+    expect(parseAnnotationResponse("[]", expected)).toEqual([]);
   });
 });
 

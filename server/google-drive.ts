@@ -1,4 +1,5 @@
 import { google } from "googleapis";
+import { DRIVE_MAX_BYTES, readDriveStream } from "./drive-download";
 
 /**
  * Google Drive OAuth2 authentication.
@@ -135,20 +136,26 @@ export async function listDriveFiles(query?: string, pageToken?: string, folderI
 }
 
 export async function downloadDriveFile(fileId: string): Promise<{ buffer: Buffer; name: string; mimeType: string }> {
-  return withAuthRetry(async (forceRefresh) => {
+  if (typeof fileId !== "string" || !/^[a-zA-Z0-9_-]{1,200}$/.test(fileId)) throw new Error("Invalid Google Drive file ID.");
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 30000);
+  const requestOptions = { signal: controller.signal, timeout: 30000, retry: false };
+  try {
+  return await withAuthRetry(async (forceRefresh) => {
     const drive = await getUncachableGoogleDriveClient(forceRefresh);
 
-    const meta = await drive.files.get({ fileId, fields: "name, mimeType, size" });
+    const meta = await drive.files.get({ fileId, fields: "name, mimeType, size" }, requestOptions);
     const name = meta.data.name!;
     const mimeType = meta.data.mimeType!;
+    if (meta.data.size && Number(meta.data.size) > DRIVE_MAX_BYTES) throw new Error("Google Drive file exceeds the 50 MB size limit.");
 
     if (mimeType === "application/vnd.google-apps.document") {
       const res = await drive.files.export(
         { fileId, mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" },
-        { responseType: "arraybuffer" }
+        { ...requestOptions, responseType: "stream" }
       );
       return {
-        buffer: Buffer.from(res.data as ArrayBuffer),
+        buffer: await readDriveStream(res.data, controller.signal),
         name: name.endsWith(".docx") ? name : name + ".docx",
         mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       };
@@ -157,10 +164,10 @@ export async function downloadDriveFile(fileId: string): Promise<{ buffer: Buffe
     if (mimeType === "application/vnd.google-apps.presentation") {
       const res = await drive.files.export(
         { fileId, mimeType: "application/vnd.openxmlformats-officedocument.presentationml.presentation" },
-        { responseType: "arraybuffer" }
+        { ...requestOptions, responseType: "stream" }
       );
       return {
-        buffer: Buffer.from(res.data as ArrayBuffer),
+        buffer: await readDriveStream(res.data, controller.signal),
         name: name.endsWith(".pptx") ? name : name + ".pptx",
         mimeType: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
       };
@@ -168,14 +175,23 @@ export async function downloadDriveFile(fileId: string): Promise<{ buffer: Buffe
 
     const res = await drive.files.get(
       { fileId, alt: "media" },
-      { responseType: "arraybuffer" }
+      { ...requestOptions, responseType: "stream" }
     );
     return {
-      buffer: Buffer.from(res.data as ArrayBuffer),
+      buffer: await readDriveStream(res.data, controller.signal),
       name,
       mimeType,
     };
   });
+  } catch (error: any) {
+    // Do not propagate SDK request objects, credential-bearing URLs, or provider bodies.
+    if (controller.signal.aborted) throw new Error("Google Drive download timed out. Try a smaller file or retry.");
+    if (error?.message === "Google Drive file exceeds the 50 MB size limit.") throw new Error(error.message);
+    const status = Number(error?.response?.status ?? error?.code);
+    if (status === 401 || status === 403) throw new Error("Google Drive access failed. Reauthorize Drive or check file permissions.");
+    if (status === 429) throw new Error("Google Drive rate limit reached. Retry later.");
+    throw new Error("Google Drive download failed. Check the connection, Drive configuration and file permissions, then retry.");
+  } finally { clearTimeout(timer); }
 }
 
 export async function getOrCreateOutputFolder(): Promise<string> {

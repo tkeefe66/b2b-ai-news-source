@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { chatCompletion } from "./ai-models";
+import { parseAIJson } from "./model-output";
 
 const SUMMARY_MAX = 160;
 const ANNOTATION_MODEL = "claude-haiku-4-5-20251001";
@@ -50,20 +51,12 @@ export function buildAnnotationPrompt(inputs: AnnotationInput[]): string {
 }
 
 export function parseAnnotationResponse(raw: string, expectedNames: string[]): TagAnnotation[] {
-  const stripped = raw.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(stripped);
-  } catch {
-    return [];
-  }
-  if (!Array.isArray(parsed)) return [];
+  const parsed = parseAIJson(raw, z.array(annotationSchema));
   const allowed = new Set(expectedNames);
   const results: TagAnnotation[] = [];
   for (const entry of parsed) {
-    const check = annotationSchema.safeParse(entry);
-    if (!check.success || !allowed.has(check.data.name)) continue;
-    results.push({ ...check.data, summary: check.data.summary.substring(0, SUMMARY_MAX) });
+    if (!allowed.has(entry.name)) continue;
+    results.push({ ...entry, summary: entry.summary.substring(0, SUMMARY_MAX) });
   }
   return results;
 }
@@ -72,8 +65,8 @@ export async function annotateTags(inputs: AnnotationInput[]): Promise<TagAnnota
   if (inputs.length === 0) return [];
   // No jsonMode: ai-models' anthropic branch (which this model resolves to) doesn't honor
   // it — only gemini does. Guarded instead by the prompt demanding a bare JSON array, plus
-  // parseAnnotationResponse defensively returning [] on any non-JSON output. Annotation is
-  // advise-only and retries on a later queue load, so a dropped batch is not user-visible.
+  // runtime validation rejecting malformed output. Valid partial suggestions remain
+  // advise-only; omitted tags can be retried on a later queue load.
   const raw = await chatCompletion({
     model: ANNOTATION_MODEL,
     messages: [{ role: "user", content: buildAnnotationPrompt(inputs) }],

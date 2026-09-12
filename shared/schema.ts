@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, serial, integer, timestamp, boolean, uniqueIndex, index, unique, date, customType } from "drizzle-orm/pg-core";
+import { pgTable, json, text, varchar, serial, integer, timestamp, boolean, uniqueIndex, index, unique, date, customType } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -604,6 +604,8 @@ export const briefs = pgTable("briefs", {
   periodStart: timestamp("period_start"),
   periodEnd: timestamp("period_end"),
   payload: text("payload"), // JSON string of BriefPayload (null until composed)
+  deliveryPayload: text("delivery_payload"),
+  deliveryStartedAt: timestamp("delivery_started_at"),
   status: text("status").notNull().default("pending"), // pending|composed|sent|sent_fallback|failed_compose|failed_send
   attempts: integer("attempts").notNull().default(0),
   error: text("error"),
@@ -639,3 +641,16 @@ export type SourceReportRow = {
   blockedAll: number;
   failureDays: number;
 };
+
+// Persistent daily admission ceiling; reservations survive restarts.
+export const aiDailyBudget = pgTable("ai_daily_budget", {
+  day: date("day").primaryKey(),
+  reservedUnits: integer("reserved_units").notNull().default(0),
+  calls: integer("calls").notNull().default(0),
+});
+
+export const authSessions = pgTable("auth_sessions", {
+  sid: varchar("sid").primaryKey(),
+  sess: json("sess").notNull(),
+  expire: timestamp("expire", { precision: 6 }).notNull(),
+}, (table) => [index("auth_sessions_expire_idx").on(table.expire)]);

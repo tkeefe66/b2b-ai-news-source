@@ -1,4 +1,4 @@
-const CACHE_NAME = "martech-intel-v1";
+const CACHE_NAME = "martech-intel-v2-auth";
 const STATIC_ASSETS = [
   "/",
   "/manifest.json",
@@ -26,7 +26,7 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
 
-  if (url.pathname.startsWith("/api/")) {
+  if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/slide-images")) {
     return;
   }
 
@@ -39,7 +39,7 @@ self.addEventListener("fetch", (event) => {
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        if (response.ok && url.origin === self.location.origin) {
+        if (response.ok && url.origin === self.location.origin && (url.pathname.startsWith("/assets/") || STATIC_ASSETS.includes(url.pathname))) {
           const clone = response.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
         }

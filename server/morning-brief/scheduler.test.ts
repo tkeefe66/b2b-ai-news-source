@@ -63,6 +63,54 @@ beforeEach(() => {
 });
 
 describe("executeAction", () => {
+  it("does not retry a legacy ambiguous send without an original delivery key", async () => {
+    // Mutation: assigning a new key to a pre-migration failed send can deliver it twice.
+    const send = vi.fn();
+    await executeAction(row({ status: "failed_send" }), "send", cfg, { send });
+    expect(send).not.toHaveBeenCalled();
+    expect(storage.updateBrief).toHaveBeenCalledWith(10, expect.objectContaining({ status: "delivery_review" }));
+  });
+  it("retains the delivery key when saving sent status fails", async () => {
+    // Mutation: losing the persisted snapshot after a DB error creates a new delivery.
+    let saved = row({ status: "composed", payload: JSON.stringify(validPayload) });
+    let failSentUpdate = true;
+    vi.mocked(storage.updateBrief).mockImplementation(async (_id, data) => {
+      if (data.status === "sent" && failSentUpdate) { failSentUpdate = false; throw new Error("DB write lost"); }
+      return (saved = { ...saved, ...data } as Brief);
+    });
+    const send = vi.fn().mockResolvedValue({ id: "em_1" });
+    await executeAction(saved, "send", cfg, { send });
+    expect(saved.status).toBe("failed_send");
+    await executeAction(saved, "send", cfg, { send });
+    expect(send.mock.calls[1]).toEqual(send.mock.calls[0]);
+    expect(saved.status).toBe("sent");
+  });
+
+  it("does not send until delivery intent is durable", async () => {
+    // Mutation: sending before snapshot persistence spends a provider side effect with no retry key state.
+    vi.mocked(storage.updateBrief).mockRejectedValue(new Error("DB unavailable"));
+    const send = vi.fn();
+    await expect(executeAction(row({ status: "composed", payload: JSON.stringify(validPayload) }), "send", cfg, { send })).rejects.toThrow("DB unavailable");
+    expect(send).not.toHaveBeenCalled();
+  });
+  it("reuses persisted delivery after restart even when recipients or content change", async () => {
+    // Mutation: rendering a fresh fallback or recipient list changes a retried provider request.
+    let saved = row({ status: "failed_compose", attempts: 3 });
+    vi.mocked(storage.updateBrief).mockImplementation(async (_id, data) => (saved = { ...saved, ...data } as Brief));
+    const send = vi.fn().mockRejectedValueOnce(new Error("response lost")).mockResolvedValue({ id: "em_1" });
+    await executeAction(saved, "fallback", cfg, { send });
+    await executeAction(saved, "send", { ...cfg, recipients: ["changed@example.com"] }, { send });
+    expect(send.mock.calls[1]).toEqual(send.mock.calls[0]);
+    expect(send.mock.calls[0][2]).toEqual({ idempotencyKey: "morning-brief/10" });
+  });
+
+  it("requires delivery review after the provider idempotency window", async () => {
+    // Mutation: retrying after key expiry can deliver an already accepted email twice.
+    const send = vi.fn();
+    await executeAction(row({ status: "failed_send", deliveryPayload: JSON.stringify({ email: { subject: "s", html: "h", text: "t" }, recipients: cfg.recipients, fallback: true }), deliveryStartedAt: new Date(Date.now() - 24 * 3600_000) } as any), "send", cfg, { send });
+    expect(send).not.toHaveBeenCalled();
+    expect(storage.updateBrief).toHaveBeenCalledWith(10, expect.objectContaining({ status: "delivery_review" }));
+  });
   it("compose success → composed → sent", async () => {
     const compose = vi.fn().mockResolvedValue(validPayload);
     const send = vi.fn().mockResolvedValue({ id: "em_1" });
@@ -88,7 +136,7 @@ describe("executeAction", () => {
   it("send action re-renders the stored payload without recomposing", async () => {
     const compose = vi.fn();
     const send = vi.fn().mockResolvedValue({ id: "em_2" });
-    await executeAction(row({ status: "failed_send", payload: JSON.stringify(validPayload) }), "send", cfg, { compose, send });
+    await executeAction(row({ status: "composed", payload: JSON.stringify(validPayload) }), "send", cfg, { compose, send });
     expect(compose).not.toHaveBeenCalled();
     expect(send).toHaveBeenCalledTimes(1);
     const last = vi.mocked(storage.updateBrief).mock.calls.at(-1)![1] as any;
@@ -106,7 +154,7 @@ describe("executeAction", () => {
   it("send action with a corrupt stored payload → failed_compose (not failed_send), send never called", async () => {
     const send = vi.fn();
     await executeAction(
-      row({ status: "failed_send", payload: '{"corrupt": true}' }),
+      row({ status: "composed", payload: '{"corrupt": true}' }),
       "send",
       cfg,
       { send },
@@ -122,7 +170,7 @@ describe("executeAction", () => {
     const send = vi.fn().mockResolvedValue({ id: "em_4" });
     const payloadWithBadDate = { ...validPayload, date: "2026-13-40" };
     await executeAction(
-      row({ status: "failed_send", payload: JSON.stringify(payloadWithBadDate), briefDate: "2026-07-02" }),
+      row({ status: "composed", payload: JSON.stringify(payloadWithBadDate), briefDate: "2026-07-02" }),
       "send",
       cfg,
       { send },

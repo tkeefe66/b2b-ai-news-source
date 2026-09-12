@@ -1,3 +1,4 @@
+import { safeFetch } from "./safe-fetch";
 import { storage } from "./storage";
 import { URL } from "url";
 
@@ -153,6 +154,7 @@ export async function runCrawl(options: CrawlOptions): Promise<void> {
 
   const rootUrl = job.rootUrl;
   const visited = new Set<string>();
+  let pagesCrawled = 0;
   const queue: { url: string; depth: number }[] = [{ url: rootUrl, depth: 0 }];
 
   try {
@@ -170,14 +172,14 @@ export async function runCrawl(options: CrawlOptions): Promise<void> {
 
       visited.add(normalizedUrl);
 
+      let persistingPage = false;
       try {
-        const response = await fetch(item.url, {
+        const response = await safeFetch(item.url, {
           headers: {
             "User-Agent": USER_AGENT,
             "Accept": "text/html,application/xhtml+xml",
           },
-          signal: AbortSignal.timeout(FETCH_TIMEOUT),
-          redirect: "follow",
+          timeoutMs: FETCH_TIMEOUT,
         });
 
         const contentType = response.headers.get("content-type") || "";
@@ -186,6 +188,7 @@ export async function runCrawl(options: CrawlOptions): Promise<void> {
         }
 
         if (!response.ok) {
+          persistingPage = true;
           await storage.createCrawlPage({
             crawlJobId: jobId,
             url: item.url,
@@ -201,6 +204,7 @@ export async function runCrawl(options: CrawlOptions): Promise<void> {
         const title = extractTitle(html);
         const textContent = htmlToText(html);
 
+        persistingPage = true;
         await storage.createCrawlPage({
           crawlJobId: jobId,
           url: item.url,
@@ -210,9 +214,10 @@ export async function runCrawl(options: CrawlOptions): Promise<void> {
           status: "crawled",
           depth: item.depth,
         });
+        pagesCrawled++;
 
         await storage.updateCrawlJob(jobId, {
-          pagesCrawled: visited.size,
+          pagesCrawled,
           pagesDiscovered: visited.size + queue.length,
         });
 
@@ -229,6 +234,8 @@ export async function runCrawl(options: CrawlOptions): Promise<void> {
         await sleep(RATE_LIMIT_MS);
 
       } catch (err: any) {
+        // Fetch failures may skip a page; losing a DB write invalidates the run.
+        if (persistingPage) throw err;
         await storage.createCrawlPage({
           crawlJobId: jobId,
           url: item.url,
@@ -240,17 +247,25 @@ export async function runCrawl(options: CrawlOptions): Promise<void> {
       }
     }
 
+    if (pagesCrawled === 0) {
+      throw new Error("No pages could be crawled. Check the URL and page errors, then retry.");
+    }
     await storage.updateCrawlJob(jobId, {
       status: "crawled",
-      pagesCrawled: visited.size,
+      pagesCrawled,
       pagesDiscovered: visited.size,
     });
 
   } catch (err: any) {
     console.error(`Crawl job ${jobId} failed:`, err);
-    await storage.updateCrawlJob(jobId, {
-      status: "error",
-      errorMessage: err.message?.substring(0, 500) || "Crawl failed",
-    });
+    try {
+      await storage.updateCrawlJob(jobId, {
+        status: "error",
+        errorMessage: err.message?.substring(0, 500) || "Crawl failed",
+      });
+    } catch (persistError) {
+      console.error(`Crawl job ${jobId}: failed to persist error state`, persistError);
+    }
+    throw err;
   }
 }
