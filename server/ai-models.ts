@@ -39,16 +39,21 @@ export async function chatCompletion({
   messages,
   maxTokens = 8192,
   jsonMode = false,
+  timeoutMs = 120_000,
 }: {
   model: string;
   messages: ChatMessage[];
   maxTokens?: number;
   jsonMode?: boolean;
+  timeoutMs?: number;
 }): Promise<string> {
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 300_000) {
+    throw new Error("AI request timeout must be between 1 and 300000 milliseconds.");
+  }
   model = resolveModel(model);
   const release = await acquireAiPermit(messages, maxTokens);
   const controller = new AbortController();
-  const deadline = setTimeout(() => controller.abort(), 120_000);
+  const deadline = setTimeout(() => controller.abort(), timeoutMs);
   try {
   const provider = getProvider(model);
 
@@ -65,6 +70,7 @@ export async function chatCompletion({
       contents,
       config: {
         abortSignal: controller.signal,
+        httpOptions: { timeout: timeoutMs },
         ...(systemMsg ? { systemInstruction: typeof systemMsg.content === "string" ? systemMsg.content : "" } : {}),
         maxOutputTokens: maxTokens,
         ...(jsonMode ? { responseMimeType: "application/json" as const } : {}),
@@ -103,12 +109,17 @@ export async function chatCompletion({
     messages: chatMsgs,
     max_tokens: maxTokens,
     ...(systemContent ? { system: systemContent } : {}),
-  }, { signal: controller.signal });
+  }, { signal: controller.signal, timeout: timeoutMs });
   assertCompletion(resp.stop_reason);
   report("b2b-ai-news", model, resp.usage);
   const textBlock = resp.content.find((b: any) => b.type === "text");
   if (!(textBlock as any)?.text?.trim()) throw new Error("AI returned no content. Please retry.");
   return (textBlock as any).text;
+  } catch (error) {
+    if (controller.signal.aborted || (error instanceof Error && error.name === "APIConnectionTimeoutError")) {
+      throw new Error(`AI request timed out after ${timeoutMs / 1000} seconds (${model}). Retry or use a smaller request.`, { cause: error });
+    }
+    throw error;
   } finally { clearTimeout(deadline); controller.abort(); release(); }
 }
 

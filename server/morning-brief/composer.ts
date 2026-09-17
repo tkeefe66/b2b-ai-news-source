@@ -7,6 +7,9 @@ import { blog } from "./log";
 
 export const BRIEF_MODEL = "claude-sonnet-4-6";
 const MAX_ARTICLES = 120;
+// Background briefs regularly exceed the interactive two-minute AI deadline.
+// Bound both passes; the scheduler's in-flight guard also covers slow repairs.
+const BRIEF_TIMEOUT_MS = 4 * 60_000;
 
 export interface ComposerInputs {
   dateStr: string;
@@ -161,6 +164,7 @@ export async function composeBrief(
     // 4096 truncated real payloads mid-array (article URLs tokenize expensively)
     maxTokens: 8192,
     jsonMode: true,
+    timeoutMs: BRIEF_TIMEOUT_MS,
   });
   let attempt = tryParse(first);
   if (attempt.ok) {
@@ -183,6 +187,7 @@ export async function composeBrief(
     // 4096 truncated real payloads mid-array (article URLs tokenize expensively)
     maxTokens: 8192,
     jsonMode: true,
+    timeoutMs: BRIEF_TIMEOUT_MS,
   });
   attempt = tryParse(second);
   if (attempt.ok) {
