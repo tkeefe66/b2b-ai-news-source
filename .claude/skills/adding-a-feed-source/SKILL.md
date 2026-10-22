@@ -135,12 +135,14 @@ Run with `npx tsx check.ts "$FEED_URL"`, then delete the file.
 
 ## Failure handling and the edit trap
 
-`checkAndRemoveFailingSources` **deletes** a source after 3 distinct days of fetch
-failures. Any successful fetch clears the whole failure record, so intermittent
-5xx is tolerated; a genuinely dead feed disappears from the DB while its
-`DEFAULT_SOURCES` entry remains — and the next boot re-seeds it, restarting the
-cycle. Mark dead feeds `isActive: false` with a trailing comment (`// 404`,
-`// XML parse error`) rather than leaving them to churn.
+`checkAndRemoveFailingSources` **deactivates** a source (`is_active = false`) after
+3 distinct days of fetch failures. Any successful fetch clears the whole failure
+record, so intermittent 5xx is tolerated. It used to DELETE the row, which failed on
+`articles_source_id_sources_id_fk` for any source with articles (fixed 2026-10-22).
+The row stays, so the boot seeder won't re-insert it; re-enable it via
+`PATCH /api/sources/:id`. Still mark dead feeds `isActive: false` in
+`DEFAULT_SOURCES` with a trailing comment (`// 404`, `// XML parse error`) so fresh
+databases don't seed them.
 
 **Editing a `feedUrl` does not update the existing row.** The seeder sees an
 unrecognized URL and inserts a second source; the old one keeps fetching under the

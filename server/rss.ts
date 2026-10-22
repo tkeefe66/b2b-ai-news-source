@@ -48,7 +48,11 @@ async function clearFetchFailures(sourceId: number): Promise<void> {
   }
 }
 
-async function checkAndRemoveFailingSources(): Promise<string[]> {
+// Deactivates rather than deletes: articles.source_id has no ON DELETE cascade, so a
+// DELETE fails on any source that ever ingested an article — after the failure
+// history was already wiped, restarting the 3-day cycle forever. Deactivating also
+// keeps the row, so the feedUrl-matching boot seeder doesn't re-insert it.
+export async function checkAndRemoveFailingSources(): Promise<string[]> {
   const removed: string[] = [];
   try {
     const { rows } = await pool.query(`
@@ -59,9 +63,9 @@ async function checkAndRemoveFailingSources(): Promise<string[]> {
       HAVING COUNT(DISTINCT sff.failed_date) >= 3
     `);
     for (const row of rows) {
-      console.log(`Auto-removing source "${row.name}" (ID: ${row.source_id}) after ${row.failure_days} days of fetch failures`);
+      console.log(`Auto-deactivating source "${row.name}" (ID: ${row.source_id}) after ${row.failure_days} days of fetch failures`);
+      await pool.query("UPDATE sources SET is_active = false WHERE id = $1", [row.source_id]);
       await pool.query("DELETE FROM source_fetch_failures WHERE source_id = $1", [row.source_id]);
-      await pool.query("DELETE FROM sources WHERE id = $1", [row.source_id]);
       removed.push(row.name);
     }
   } catch (err) {
@@ -162,7 +166,7 @@ export async function fetchAllFeeds(): Promise<{ total: number; errors: number; 
 
   const removed = await checkAndRemoveFailingSources();
   if (removed.length > 0) {
-    console.log(`Auto-removed ${removed.length} failing sources: ${removed.join(", ")}`);
+    console.log(`Auto-deactivated ${removed.length} failing sources: ${removed.join(", ")}`);
   }
 
   return { total, errors, removed };
