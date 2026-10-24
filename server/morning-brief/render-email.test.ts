@@ -85,7 +85,10 @@ describe("renderBriefEmail", () => {
 
   it("includes app deep links and dashboard button", () => {
     const { html } = renderBriefEmail(base, "https://app.example.com");
-    expect(html).toContain("https://app.example.com/thought-leadership");
+    expect(html).toContain("https://app.example.com/trends");
+    expect(html).toContain("Explore trends &rarr;");
+    expect(html).not.toContain("/thought-leadership");
+    expect(html).not.toContain("Create &rarr;");
     expect(html).toContain("https://app.example.com/morning-brief");
   });
 

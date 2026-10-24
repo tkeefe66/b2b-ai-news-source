@@ -82,11 +82,11 @@ Return ONLY strict JSON (no markdown fences, no prose) with exactly this shape:
   "competitorWatch": [{ "competitor": "...", "summary": "<= 30 words", "links": [{"title","url"}] }],
   "trendPulse": [{ "trend": "...", "direction": "rising"|"cooling", "note": "<= 20 words" }],
   "radar": [5-8 one-liners: { "title": "...", "sourceName": "...", "link": "..." }],
-  "contentIdea": OMIT or at most one: { "title": "...", "description": "<= 25 words", "deepLink": "/thought-leadership" },
   "quietDay": boolean
 }
 
 Rules:
+- Do not include contentIdea. Content creation tools have been retired.
 - dbAngle HONESTY: include one only when the story genuinely intersects Demandbase's business. Most stories should have NO dbAngle. Never manufacture relevance.
 - Select stories by significance to B2B GTM professionals, not recency alone. No duplicate coverage of one event across topStories and radar.
 - trendPulse: only movements you can infer by comparing the two snapshots; empty array if no snapshot data.

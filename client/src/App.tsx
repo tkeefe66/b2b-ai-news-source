@@ -15,12 +15,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import NewsFeed from "@/pages/news-feed";
 
 const Trends = lazy(() => import("@/pages/trends"));
-const Analyst = lazy(() => import("@/pages/analyst"));
 const Sources = lazy(() => import("@/pages/sources"));
-const Enablement = lazy(() => import("@/pages/enablement"));
 const DbPov = lazy(() => import("@/pages/db-pov"));
 const CompanyAnalysis = lazy(() => import("@/pages/company-analysis"));
-const ThoughtLeadershipPage = lazy(() => import("@/pages/thought-leadership"));
 const Research = lazy(() => import("@/pages/research"));
 const Briefings = lazy(() => import("@/pages/briefings"));
 const NotFound = lazy(() => import("@/pages/not-found"));
@@ -52,12 +49,12 @@ function Router() {
         </Route>
         <Route path="/briefings" component={Briefings} />
         <Route path="/trends" component={Trends} />
-        <Route path="/analyst" component={Analyst} />
+        <Route path="/analyst"><Redirect to="/briefings" replace /></Route>
         <Route path="/sources" component={Sources} />
-        <Route path="/enablement" component={Enablement} />
+        <Route path="/enablement"><Redirect to="/briefings" replace /></Route>
         <Route path="/db-pov" component={DbPov} />
         <Route path="/company-analysis" component={CompanyAnalysis} />
-        <Route path="/thought-leadership" component={ThoughtLeadershipPage} />
+        <Route path="/thought-leadership"><Redirect to="/briefings" replace /></Route>
         <Route path="/research" component={Research} />
         <Route component={NotFound} />
       </Switch>

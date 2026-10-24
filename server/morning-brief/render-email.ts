@@ -137,7 +137,7 @@ export function renderBriefEmail(payload: BriefPayload, appUrl: string): Rendere
     parts.push(sectionHeading("Content idea"));
     parts.push(`<tr><td style="padding:8px 28px 4px 28px;">
   <span style="font-family:Arial,Helvetica,sans-serif;font-size:13px;color:${INK};"><b>${esc(payload.contentIdea.title)}</b> — ${esc(payload.contentIdea.description)}</span>
-  <div style="padding-top:4px;"><a href="${appUrl}${esc(payload.contentIdea.deepLink)}" style="font-family:Arial,Helvetica,sans-serif;font-size:13px;color:${MIDNIGHT};font-weight:bold;">Create &rarr;</a></div>
+  <div style="padding-top:4px;"><a href="${appUrl}/trends" style="font-family:Arial,Helvetica,sans-serif;font-size:13px;color:${MIDNIGHT};font-weight:bold;">Explore trends &rarr;</a></div>
 </td></tr>`);
     textParts.push("CONTENT IDEA", `- ${payload.contentIdea.title}: ${payload.contentIdea.description}`, "");
   }

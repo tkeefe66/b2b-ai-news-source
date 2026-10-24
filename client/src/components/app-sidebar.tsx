@@ -1,4 +1,4 @@
-import { Newspaper, Brain, BookOpen, RefreshCw, TrendingUp, Target, Database, BarChart3, Building2, Lightbulb, Search, Mail } from "lucide-react";
+import { Newspaper, BookOpen, RefreshCw, TrendingUp, Database, BarChart3, Building2, Search, Mail } from "lucide-react";
 import { useLocation, Link } from "wouter";
 import {
   Sidebar,
@@ -26,7 +26,7 @@ export interface NavItem {
 }
 
 // Single source of truth for primary navigation. Grouped by task: Scan (find
-// what's new), Create (turn news into content), Manage (configure sources and data).
+// what's new), Manage (configure sources and data).
 export const navGroups: { label: string; items: NavItem[] }[] = [
   {
     label: "Scan",
@@ -34,14 +34,6 @@ export const navGroups: { label: string; items: NavItem[] }[] = [
       { title: "News Feed", url: "/", icon: Newspaper, description: "Latest articles from your sources" },
       { title: "Briefings", url: "/briefings", icon: Mail, description: "Morning email digest and deep AI reports" },
       { title: "Trends", url: "/trends", icon: BarChart3, description: "AI trend snapshots, watchlist, and competitive intelligence" },
-    ],
-  },
-  {
-    label: "Create",
-    items: [
-      { title: "Thought Leadership", url: "/thought-leadership", icon: Lightbulb, description: "Turn news into content ideas, blogs, and decks" },
-      { title: "Field Enablement", url: "/enablement", icon: Target, description: "Generate battle cards, emails, and sales decks" },
-      { title: "AI Analyst", url: "/analyst", icon: Brain, description: "Chat with an analyst grounded in your news and briefings" },
     ],
   },
   {

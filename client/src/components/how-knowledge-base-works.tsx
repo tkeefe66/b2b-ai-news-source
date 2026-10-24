@@ -46,8 +46,7 @@ export function HowKnowledgeBaseWorks({ defaultOpen }: { defaultOpen: boolean })
           <section>
             <SectionLabel>Which AI features read it</SectionLabel>
             <p>
-              Field Enablement grounds every piece of content in these entries. Thought
-              Leadership generation and the daily Morning Brief use them too. The
+              The daily Morning Brief uses these entries for Demandbase context. The
               structured entries on the Products tab additionally feed Public Company
               Analysis, so its Demandbase recommendations cite real capabilities.
             </p>

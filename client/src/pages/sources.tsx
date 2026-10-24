@@ -544,8 +544,8 @@ function EmbeddingStatusCard() {
           </div>
           <p className="text-xs text-muted-foreground leading-relaxed mb-2">
             {allEmbedded
-              ? `All ${stats.total} articles are indexed for full-text search. The AI Analyst finds the most relevant articles for any question.`
-              : `${stats.pending} articles need indexing. Index them so the AI Analyst can search all ${stats.total} articles.`}
+              ? `All ${stats.total} articles are indexed for full-text search.`
+              : `${stats.pending} articles need indexing. Index them to search all ${stats.total} articles.`}
           </p>
           {!allEmbedded && (
             <div className="space-y-2">
@@ -1651,7 +1651,7 @@ function KnowledgeReviewDialog({ entries: initialEntries, batchId, filename, ope
             <div>
               <p className="font-semibold text-lg">{approvedCount} entries approved</p>
               <p className="text-sm text-muted-foreground mt-1">
-                Knowledge has been added to the DB POV knowledge base and is now available for the AI Analyst and Field Enablement agent.
+                Knowledge has been added to the DB POV knowledge base and is now available for Morning Brief context.
               </p>
             </div>
           </div>
@@ -2112,7 +2112,7 @@ function KnowledgeBaseSection() {
               )}
             </div>
             <p className="text-xs text-muted-foreground">
-              Approved knowledge from uploaded documents, used by the AI Analyst
+              Approved knowledge from uploaded documents, used by the Morning Brief
             </p>
           </div>
           {expanded ? (
@@ -2736,7 +2736,7 @@ function KnowledgeBaseSection() {
             return (
               <div className="space-y-3">
                 <p className="text-sm text-muted-foreground">
-                  This will permanently remove this entry from the knowledge base. The AI Analyst will no longer reference it.
+                  This will permanently remove this entry from the knowledge base. Future Morning Briefs will no longer reference it.
                 </p>
                 {entryToDelete && (
                   <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 space-y-1.5" data-testid="delete-entry-preview">
