@@ -1,23 +1,33 @@
-import { afterEach, describe, expect, it } from "vitest";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { EventEmitter } from "node:events";
+import { fork } from "node:child_process";
+vi.mock("node:child_process", async importOriginal => {
+  const actual = await importOriginal<typeof import("node:child_process")>();
+  return { ...actual, fork: vi.fn(actual.fork) };
+});
 import { parsePdfIsolated } from "./pdf-isolation";
 
-const dirs: string[] = [];
-afterEach(() => { for (const dir of dirs.splice(0)) fs.rmSync(dir, { recursive: true, force: true }); });
+afterEach(() => { vi.useRealTimers(); vi.clearAllMocks(); });
 
 describe("isolated PDF parsing", () => {
   it("kills a stalled worker on timeout and waits for its exit", async () => {
     // Mutation: reject on timeout without terminating the actual parser process.
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pdf-worker-test-")); dirs.push(dir);
-    const pidFile = path.join(dir, "pid"); const worker = path.join(dir, "stall.cjs");
-    fs.writeFileSync(worker, `require('fs').writeFileSync(${JSON.stringify(pidFile)},String(process.pid));process.on('message',()=>setTimeout(()=>process.exit(0),1500));`);
-    const started = Date.now();
-    await expect(parsePdfIsolated(Buffer.from("test"), { workerPath: worker, timeoutMs: 300 })).rejects.toThrow(/timed out/);
-    expect(Date.now() - started).toBeLessThan(1200);
-    const pid = Number(fs.readFileSync(pidFile, "utf8"));
-    expect(() => process.kill(pid, 0)).toThrow();
+    // Control lifecycle events: a loaded builder may kill a real worker before
+    // it starts, so a PID file cannot reliably prove timeout behavior.
+    vi.useFakeTimers();
+    const child = Object.assign(new EventEmitter(), { kill: vi.fn(), send: vi.fn() });
+    vi.mocked(fork).mockReturnValueOnce(child as unknown as ReturnType<typeof fork>);
+    const result = parsePdfIsolated(Buffer.from("test"), { timeoutMs: 300 });
+    const rejection = expect(result).rejects.toThrow(/timed out/);
+    let settled = false;
+    void result.then(() => { settled = true; }, () => { settled = true; });
+    await vi.advanceTimersByTimeAsync(299);
+    expect(child.kill).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(child.kill).toHaveBeenCalledWith("SIGKILL");
+    expect(settled).toBe(false);
+    child.emit("close", null);
+    await rejection;
   });
   it("extracts text using the installed PDF parser API", async () => {
     // Mutation: use the old callable pdf-parse API or load an absent production worker path.
