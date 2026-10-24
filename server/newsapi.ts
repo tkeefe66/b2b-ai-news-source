@@ -89,17 +89,13 @@ export async function fetchNewsAPIArticles(): Promise<{ total: number; errors: n
         if (!item.url || !item.title) continue;
         if (item.title === "[Removed]") continue;
 
-        const existing = await storage.getArticleByLink(item.url);
-        if (existing) continue;
-
         const description = item.description ? htmlToText(item.description).substring(0, 500) : "";
-        const content = item.content ? htmlToText(item.content).substring(0, 25000) : "";
 
         const article: InsertArticle = {
           title: item.title,
           link: item.url,
           description: description || null,
-          content: content || null,
+          content: null,
           author: item.author || null,
           publishedAt: item.publishedAt ? new Date(item.publishedAt) : new Date(),
           sourceId: null,
@@ -110,6 +106,7 @@ export async function fetchNewsAPIArticles(): Promise<{ total: number; errors: n
         };
 
         const created = await storage.createArticle(article);
+        if (!created) continue;
         createdRows.push(created);
         total++;
       }

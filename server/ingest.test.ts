@@ -2,7 +2,8 @@ import { describe, it, expect } from "vitest";
 import { mapFeedItem, firstBlockedTag } from "./ingest";
 
 describe("mapFeedItem", () => {
-  it("extracts guid, tags, and sanitized content", () => {
+  it("extracts guid and tags but retains only the sanitized description", () => {
+    // Mutation: storing the full body again consumes archive space.
     const mapped = mapFeedItem({
       guid: "5M2gv6mk7MEHXAvBa4H7z0",
       categories: ["AI", "Business"],
@@ -14,7 +15,7 @@ describe("mapFeedItem", () => {
       { name: "ai", displayName: "AI" },
       { name: "business", displayName: "Business" },
     ]);
-    expect(mapped.content).toBe("Full article body");
+    expect(mapped.content).toBeNull();
     expect(mapped.description).toBe("Full article body");
   });
 
@@ -23,15 +24,18 @@ describe("mapFeedItem", () => {
       content: "<p>short excerpt</p>",
       "content:encoded": "<p>the full body</p>",
     });
-    expect(mapped.content).toBe("the full body");
+    // Mutation: reading the short content field instead of encoded content loses the excerpt.
+    expect(mapped.description).toBe("the full body");
+    expect(mapped.content).toBeNull();
   });
 
-  it("caps content at 25000 chars and description at 500", () => {
+  it("discards full bodies and caps descriptions at 500", () => {
+    // Mutation: persisting content or an unbounded excerpt restores unbounded body growth.
     const mapped = mapFeedItem({
       content: "x".repeat(30000),
       contentSnippet: "y".repeat(600),
     });
-    expect(mapped.content).toHaveLength(25000);
+    expect(mapped.content).toBeNull();
     expect(mapped.description).toHaveLength(500);
   });
 
@@ -65,7 +69,8 @@ describe("mapFeedItem", () => {
         "<p>Comments URL: <a href=\"https://news.ycombinator.com/item?id=1\">https://news.ycombinator.com/item?id=1</a></p>\n" +
         "<p>Points: 88</p>\n<p># Comments: 42</p>",
     });
-    expect(mapped.content).toBe("We spent a year replacing our CRM. Here is what broke.");
+    // Mutation: keeping self-post full content bypasses the news body retention policy.
+    expect(mapped.content).toBeNull();
     expect(mapped.description).toBe("We spent a year replacing our CRM. Here is what broke.");
   });
 

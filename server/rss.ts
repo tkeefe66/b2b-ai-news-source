@@ -90,15 +90,6 @@ export async function fetchFeedArticles(sourceId: number, feedUrl: string, sourc
         continue;
       }
 
-      let existing = mapped.guid ? await storage.getArticleByGuid(sourceId, mapped.guid) : undefined;
-      if (!existing) existing = await storage.getArticleByLink(item.link);
-      if (existing) {
-        if (mapped.guid && !existing.guid) {
-          await storage.setArticleGuid(existing.id, mapped.guid);
-        }
-        continue;
-      }
-
       const article: InsertArticle = {
         title: item.title,
         link: item.link,
@@ -116,7 +107,8 @@ export async function fetchFeedArticles(sourceId: number, feedUrl: string, sourc
       };
 
       try {
-        await storage.createArticle(article);
+        const created = await storage.createArticle(article);
+        if (!created) continue; // expired or already seen; storage refreshes compact identity receipts
         added++;
         if (mapped.tags.length) await storage.incrementTagCounts(mapped.tags.map((t) => t.name));
       } catch (err: any) {

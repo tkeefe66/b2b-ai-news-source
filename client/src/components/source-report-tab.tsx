@@ -126,6 +126,7 @@ export default function SourceReportTab() {
 
   return (
     <div className="space-y-3">
+      <p className="text-xs text-muted-foreground">News is kept for 30 days. Article and dismissed counts reflect retained news; briefs and knowledge-base documents are kept.</p>
       <div className="flex items-center gap-2">
         {FILTERS.map((f) => (
           <Button
@@ -148,7 +149,7 @@ export default function SourceReportTab() {
           <TableRow>
             {header("name", "Source")}
             {header("count30d", "30d", "text-right")}
-            {header("countAll", "All", "text-right")}
+            {header("countAll", "Retained", "text-right")}
             {header("lastArticleAt", "Last article")}
             {header("dismissedAll", "Dismissed", "text-right")}
             {header("blockedAll", "Blocked", "text-right")}
@@ -161,7 +162,7 @@ export default function SourceReportTab() {
               <TableCell>
                 <div className="flex items-center gap-2">
                   <span className={r.isActive ? "" : "text-muted-foreground line-through"}>{r.name}</span>
-                  <Badge variant="secondary" className="text-[10px]">{r.category}</Badge>
+                  <Badge variant="secondary" className="text-xs">{r.category}</Badge>
                   {r.failureDays > 0 && (
                     <span className="flex items-center gap-1 text-xs text-destructive">
                       <AlertTriangle className="h-3 w-3" />

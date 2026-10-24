@@ -15,6 +15,7 @@ import { sql } from "drizzle-orm";
 import { ensureBriefsTable } from "./morning-brief/ensure-table";
 import { startBriefScheduler } from "./morning-brief/scheduler";
 import { sweepRecentUntagged } from "./tag-sweep";
+import { runArticleRetention, startArticleRetention } from "./article-retention";
 
 const app = express();
 const httpServer = createServer(app);
@@ -104,6 +105,8 @@ export function log(message: string, source = "express") {
       reusePort: true,
     },
     async () => {
+      // Install before the long startup feed fetch so a stalled source cannot stop cleanup.
+      startArticleRetention(() => runArticleRetention(pool));
       log(`serving on port ${port}`);
 
       try {

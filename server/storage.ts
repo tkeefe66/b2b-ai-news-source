@@ -1,4 +1,5 @@
 import { db, pool } from "./db";
+import { ingestNewsArticle } from "./article-retention";
 import { eq, desc, sql, and, inArray, arrayContains, getTableColumns, gte, lt, or, ilike } from "drizzle-orm";
 import {
   sources, articles, trendAnalyses, trendSnapshots, chatMessages, chatSessions, knowledgeEntries, companyAnalyses, thoughtLeadership, slideDesigns, pendingKnowledge, enablementContent, articleDigests, productKnowledge, productFeatures, newsapiQueries, tlDocuments, processingJobs, knowledgeReviews, dashboardViews, competitors, trendWatchlist, crawlJobs, crawlPages, crawlEntries, briefs, feedTags, TAG_SURFACE_THRESHOLD,
@@ -80,7 +81,7 @@ export interface IStorage {
   getArticleByLink(link: string): Promise<Article | undefined>;
   getArticleByGuid(sourceId: number, guid: string): Promise<Article | undefined>;
   setArticleGuid(id: number, guid: string): Promise<void>;
-  createArticle(article: InsertArticle): Promise<Article>;
+  createArticle(article: InsertArticle): Promise<Article | undefined>;
   getArticleCount(): Promise<number>;
   getArticlesBySource(sourceId: number): Promise<Article[]>;
   searchArticles(query: string): Promise<Article[]>;
@@ -377,9 +378,8 @@ export class DatabaseStorage implements IStorage {
     await db.update(articles).set({ guid }).where(eq(articles.id, id));
   }
 
-  async createArticle(article: InsertArticle): Promise<Article> {
-    const [created] = await db.insert(articles).values(article).returning();
-    return created;
+  async createArticle(article: InsertArticle): Promise<Article | undefined> {
+    return ingestNewsArticle(db, article);
   }
 
   async getArticleCount(): Promise<number> {

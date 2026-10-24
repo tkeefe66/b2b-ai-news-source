@@ -2,7 +2,6 @@ import type { FeedTagStatus } from "@shared/schema";
 import { extractTags } from "./tags";
 import { htmlToText } from "./sanitize";
 
-const CONTENT_MAX = 25000;
 const DESCRIPTION_MAX = 500;
 const GUID_MAX = 500;
 
@@ -44,12 +43,11 @@ export function mapFeedItem(item: FeedItemInput): MappedItem {
 
   const rawHtml = item["content:encoded"] || item.content || "";
   const text = rawHtml ? stripHnBoilerplate(htmlToText(rawHtml)) : "";
-  const content = text ? text.substring(0, CONTENT_MAX) : null;
 
   const snippet = stripHnBoilerplate((item.contentSnippet || text).trim());
   const description = snippet ? snippet.substring(0, DESCRIPTION_MAX) : null;
 
-  return { guid, tags: extractTags(item.categories), description, content };
+  return { guid, tags: extractTags(item.categories), description, content: null };
 }
 
 // server/rss.ts only needs to know THAT a tag is blocked; the source report needs to know

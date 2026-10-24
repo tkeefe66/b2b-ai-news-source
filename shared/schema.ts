@@ -55,6 +55,16 @@ export const articles = pgTable("articles", {
   sourceGuidIdx: uniqueIndex("articles_source_guid_idx").on(t.sourceId, t.guid),
   searchIdx: index("articles_search_idx").using("gin", t.searchVector),
   tagsIdx: index("articles_tags_idx").using("gin", t.tags),
+  retentionIdx: index("articles_retention_idx").on(sql`LEAST(COALESCE(${t.publishedAt}, ${t.createdAt}), ${t.createdAt})`),
+}));
+
+// Compact ingestion identities outlive news rows, but expire 90 days after last seen.
+// No article text, URLs, source IDs, or user knowledge is stored in this ledger.
+export const articleSeenKeys = pgTable("article_seen_keys", {
+  keyHash: varchar("key_hash", { length: 64 }).primaryKey(),
+  lastSeenAt: timestamp("last_seen_at").notNull(),
+}, (t) => ({
+  expiryIdx: index("article_seen_keys_expiry_idx").on(t.lastSeenAt),
 }));
 
 // Runtime table used via raw SQL in server/rss.ts (fetch-failure tracking and
