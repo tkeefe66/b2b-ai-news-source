@@ -2,24 +2,17 @@ import { db, pool } from "./db";
 import { ingestNewsArticle } from "./article-retention";
 import { eq, desc, sql, and, inArray, arrayContains, getTableColumns, gte, lt, or, ilike } from "drizzle-orm";
 import {
-  sources, articles, trendAnalyses, trendSnapshots, chatMessages, chatSessions, knowledgeEntries, companyAnalyses, thoughtLeadership, slideDesigns, pendingKnowledge, enablementContent, articleDigests, productKnowledge, productFeatures, newsapiQueries, tlDocuments, processingJobs, knowledgeReviews, dashboardViews, competitors, trendWatchlist, crawlJobs, crawlPages, crawlEntries, briefs, feedTags, TAG_SURFACE_THRESHOLD,
+  sources, articles, trendAnalyses, trendSnapshots, knowledgeEntries, companyAnalyses, pendingKnowledge, productKnowledge, productFeatures, newsapiQueries, processingJobs, knowledgeReviews, dashboardViews, competitors, trendWatchlist, crawlJobs, crawlPages, crawlEntries, briefs, feedTags, TAG_SURFACE_THRESHOLD,
   type Source, type InsertSource,
   type Article, type InsertArticle,
   type TrendAnalysis, type InsertTrendAnalysis,
   type TrendSnapshot, type InsertTrendSnapshot,
-  type ChatSession, type InsertChatSession,
-  type ChatMessage, type InsertChatMessage,
   type KnowledgeEntry, type InsertKnowledgeEntry,
   type CompanyAnalysis, type InsertCompanyAnalysis,
-  type ThoughtLeadership, type InsertThoughtLeadership,
-  type SlideDesign, type InsertSlideDesign,
   type PendingKnowledge, type InsertPendingKnowledge,
-  type EnablementContent, type InsertEnablementContent,
-  type ArticleDigest, type InsertArticleDigest,
   type ProductKnowledge, type InsertProductKnowledge,
   type ProductFeature, type InsertProductFeature,
   type NewsapiQuery, type InsertNewsapiQuery,
-  type TlDocument, type InsertTlDocument,
   type ProcessingJob, type InsertProcessingJob,
   type KnowledgeReview, type InsertKnowledgeReview,
   type DashboardView, type InsertDashboardView,
@@ -121,17 +114,6 @@ export interface IStorage {
   updateTrendWatchlistItem(id: number, data: Partial<InsertTrendWatchlistItem>): Promise<TrendWatchlistItem | undefined>;
   deleteTrendWatchlistItem(id: number): Promise<void>;
 
-  getChatSessions(): Promise<ChatSession[]>;
-  getChatSession(id: number): Promise<ChatSession | undefined>;
-  createChatSession(session: InsertChatSession): Promise<ChatSession>;
-  updateChatSession(id: number, data: Partial<InsertChatSession>): Promise<ChatSession | undefined>;
-  deleteChatSession(id: number): Promise<void>;
-  getChatMessages(limit?: number): Promise<ChatMessage[]>;
-  getChatMessagesBySession(sessionId: number): Promise<ChatMessage[]>;
-  createChatMessage(message: InsertChatMessage): Promise<ChatMessage>;
-  clearChatMessages(): Promise<void>;
-  clearChatMessagesBySession(sessionId: number): Promise<void>;
-
   // Morning Brief
   getBriefs(limit?: number): Promise<Brief[]>;
   getBrief(id: number): Promise<Brief | undefined>;
@@ -162,32 +144,12 @@ export interface IStorage {
   createCompanyAnalysis(analysis: InsertCompanyAnalysis): Promise<CompanyAnalysis>;
   deleteCompanyAnalysis(id: number): Promise<void>;
 
-  getThoughtLeadership(limit?: number): Promise<ThoughtLeadership[]>;
-  getThoughtLeadershipById(id: number): Promise<ThoughtLeadership | undefined>;
-  createThoughtLeadership(data: InsertThoughtLeadership): Promise<ThoughtLeadership>;
-  deleteThoughtLeadership(id: number): Promise<void>;
-
-  getSlideDesigns(): Promise<SlideDesign[]>;
-  getApprovedSlideDesigns(): Promise<SlideDesign[]>;
-  getSlideDesign(id: number): Promise<SlideDesign | undefined>;
-  createSlideDesign(design: InsertSlideDesign): Promise<SlideDesign>;
-  updateSlideDesign(id: number, data: Partial<InsertSlideDesign>): Promise<SlideDesign | undefined>;
-  deleteSlideDesign(id: number): Promise<void>;
-  getSlideDesignsByLayoutType(layoutType: string): Promise<SlideDesign[]>;
-
-  getEnablementContent(limit?: number): Promise<EnablementContent[]>;
-  createEnablementContent(data: InsertEnablementContent): Promise<EnablementContent>;
-  updateEnablementContent(id: number, data: Partial<InsertEnablementContent>): Promise<EnablementContent | undefined>;
-  deleteEnablementContent(id: number): Promise<void>;
-
   createPendingKnowledge(entry: InsertPendingKnowledge): Promise<PendingKnowledge>;
   getAllPendingKnowledge(): Promise<PendingKnowledge[]>;
   getPendingKnowledgeByBatch(batchId: string): Promise<PendingKnowledge[]>;
   updatePendingKnowledge(id: number, data: Partial<InsertPendingKnowledge>): Promise<PendingKnowledge | undefined>;
   deletePendingKnowledge(id: number): Promise<void>;
   approvePendingEntry(id: number): Promise<KnowledgeEntry>;
-  hasUndigestedArticles(): Promise<boolean>;
-  getLatestDigestCreatedAt(): Promise<Date | null>;
 
   getProductKnowledge(): Promise<ProductKnowledge[]>;
   getActiveProductKnowledge(): Promise<ProductKnowledge[]>;
@@ -207,12 +169,6 @@ export interface IStorage {
   createNewsapiQuery(entry: InsertNewsapiQuery): Promise<NewsapiQuery>;
   updateNewsapiQuery(id: number, data: Partial<InsertNewsapiQuery>): Promise<NewsapiQuery | undefined>;
   deleteNewsapiQuery(id: number): Promise<void>;
-
-  getTlDocuments(): Promise<TlDocument[]>;
-  getActiveTlDocuments(): Promise<TlDocument[]>;
-  createTlDocument(doc: InsertTlDocument): Promise<TlDocument>;
-  updateTlDocument(id: number, data: Partial<InsertTlDocument>): Promise<TlDocument | undefined>;
-  deleteTlDocument(id: number): Promise<void>;
 
   createProcessingJob(job: InsertProcessingJob): Promise<ProcessingJob>;
   getProcessingJob(jobId: string): Promise<ProcessingJob | undefined>;
@@ -759,51 +715,6 @@ export class DatabaseStorage implements IStorage {
     await db.delete(trendWatchlist).where(eq(trendWatchlist.id, id));
   }
 
-  async getChatSessions(): Promise<ChatSession[]> {
-    return db.select().from(chatSessions).orderBy(desc(chatSessions.updatedAt));
-  }
-
-  async getChatSession(id: number): Promise<ChatSession | undefined> {
-    const [session] = await db.select().from(chatSessions).where(eq(chatSessions.id, id));
-    return session;
-  }
-
-  async createChatSession(session: InsertChatSession): Promise<ChatSession> {
-    const [created] = await db.insert(chatSessions).values(session).returning();
-    return created;
-  }
-
-  async updateChatSession(id: number, data: Partial<InsertChatSession>): Promise<ChatSession | undefined> {
-    const [updated] = await db.update(chatSessions).set({ ...data, updatedAt: new Date() }).where(eq(chatSessions.id, id)).returning();
-    return updated;
-  }
-
-  async deleteChatSession(id: number): Promise<void> {
-    await db.delete(chatMessages).where(eq(chatMessages.sessionId, id));
-    await db.delete(chatSessions).where(eq(chatSessions.id, id));
-  }
-
-  async getChatMessages(limit = 50): Promise<ChatMessage[]> {
-    return db.select().from(chatMessages).orderBy(chatMessages.createdAt).limit(limit);
-  }
-
-  async getChatMessagesBySession(sessionId: number): Promise<ChatMessage[]> {
-    return db.select().from(chatMessages).where(eq(chatMessages.sessionId, sessionId)).orderBy(chatMessages.createdAt);
-  }
-
-  async createChatMessage(message: InsertChatMessage): Promise<ChatMessage> {
-    const [created] = await db.insert(chatMessages).values(message).returning();
-    return created;
-  }
-
-  async clearChatMessages(): Promise<void> {
-    await db.delete(chatMessages);
-  }
-
-  async clearChatMessagesBySession(sessionId: number): Promise<void> {
-    await db.delete(chatMessages).where(eq(chatMessages.sessionId, sessionId));
-  }
-
   // Morning Brief
   async getBriefs(limit = 30): Promise<Brief[]> {
     return db.select().from(briefs).orderBy(desc(briefs.createdAt)).limit(limit);
@@ -963,76 +874,6 @@ export class DatabaseStorage implements IStorage {
     await db.delete(companyAnalyses).where(eq(companyAnalyses.id, id));
   }
 
-  async getThoughtLeadership(limit = 10): Promise<ThoughtLeadership[]> {
-    return db.select().from(thoughtLeadership).orderBy(desc(thoughtLeadership.createdAt)).limit(limit);
-  }
-
-  async getThoughtLeadershipById(id: number): Promise<ThoughtLeadership | undefined> {
-    const [item] = await db.select().from(thoughtLeadership).where(eq(thoughtLeadership.id, id)).limit(1);
-    return item;
-  }
-
-  async createThoughtLeadership(data: InsertThoughtLeadership): Promise<ThoughtLeadership> {
-    const [created] = await db.insert(thoughtLeadership).values(data).returning();
-    return created;
-  }
-
-  async deleteThoughtLeadership(id: number): Promise<void> {
-    await db.delete(thoughtLeadership).where(eq(thoughtLeadership.id, id));
-  }
-
-  async getSlideDesigns(): Promise<SlideDesign[]> {
-    return db.select().from(slideDesigns).orderBy(slideDesigns.layoutType, slideDesigns.variantName);
-  }
-
-  async getApprovedSlideDesigns(): Promise<SlideDesign[]> {
-    return db.select().from(slideDesigns).where(eq(slideDesigns.isApproved, true)).orderBy(slideDesigns.layoutType, slideDesigns.variantName);
-  }
-
-  async getSlideDesign(id: number): Promise<SlideDesign | undefined> {
-    const [design] = await db.select().from(slideDesigns).where(eq(slideDesigns.id, id));
-    return design;
-  }
-
-  async createSlideDesign(design: InsertSlideDesign): Promise<SlideDesign> {
-    const [created] = await db.insert(slideDesigns).values({
-      ...design,
-      designTemplate: design.designTemplate || "Classic",
-    }).returning();
-    return created;
-  }
-
-  async updateSlideDesign(id: number, data: Partial<InsertSlideDesign>): Promise<SlideDesign | undefined> {
-    const [updated] = await db.update(slideDesigns).set(data).where(eq(slideDesigns.id, id)).returning();
-    return updated;
-  }
-
-  async deleteSlideDesign(id: number): Promise<void> {
-    await db.delete(slideDesigns).where(eq(slideDesigns.id, id));
-  }
-
-  async getSlideDesignsByLayoutType(layoutType: string): Promise<SlideDesign[]> {
-    return db.select().from(slideDesigns).where(eq(slideDesigns.layoutType, layoutType)).orderBy(slideDesigns.variantName);
-  }
-
-  async getEnablementContent(limit = 50): Promise<EnablementContent[]> {
-    return db.select().from(enablementContent).orderBy(desc(enablementContent.createdAt)).limit(limit);
-  }
-
-  async createEnablementContent(data: InsertEnablementContent): Promise<EnablementContent> {
-    const [created] = await db.insert(enablementContent).values(data).returning();
-    return created;
-  }
-
-  async updateEnablementContent(id: number, data: Partial<InsertEnablementContent>): Promise<EnablementContent | undefined> {
-    const [updated] = await db.update(enablementContent).set(data).where(eq(enablementContent.id, id)).returning();
-    return updated;
-  }
-
-  async deleteEnablementContent(id: number): Promise<void> {
-    await db.delete(enablementContent).where(eq(enablementContent.id, id));
-  }
-
   async createPendingKnowledge(entry: InsertPendingKnowledge): Promise<PendingKnowledge> {
     const [created] = await db.insert(pendingKnowledge).values(entry).returning();
     return created;
@@ -1057,51 +898,6 @@ export class DatabaseStorage implements IStorage {
 
   async deletePendingKnowledge(id: number): Promise<void> {
     await db.delete(pendingKnowledge).where(eq(pendingKnowledge.id, id));
-  }
-
-  async getArticleDigests(since?: Date): Promise<ArticleDigest[]> {
-    if (since) {
-      return db.select().from(articleDigests)
-        .where(sql`${articleDigests.periodStart} >= ${since}`)
-        .orderBy(desc(articleDigests.periodStart));
-    }
-    return db.select().from(articleDigests).orderBy(desc(articleDigests.periodStart));
-  }
-
-  async createArticleDigest(data: InsertArticleDigest): Promise<ArticleDigest> {
-    const [created] = await db.insert(articleDigests).values(data).returning();
-    return created;
-  }
-
-  async getUndigestedArticleIds(): Promise<{ id: number; title: string; description: string | null; sourceName: string | null; category: string | null; publishedAt: Date | null }[]> {
-    const allDigests = await db.select({ articleIds: articleDigests.articleIds }).from(articleDigests);
-    const digestedIds = new Set(allDigests.flatMap(d => d.articleIds));
-
-    const allArticlesResult = await db.select({
-      id: articles.id,
-      title: articles.title,
-      description: articles.description,
-      sourceName: articles.sourceName,
-      category: articles.category,
-      publishedAt: articles.publishedAt,
-    }).from(articles).where(eq(articles.dismissed, false));
-
-    return allArticlesResult.filter(a => !digestedIds.has(a.id));
-  }
-
-  async hasUndigestedArticles(): Promise<boolean> {
-    const allDigests = await db.select({ articleIds: articleDigests.articleIds }).from(articleDigests);
-    const digestedIds = new Set(allDigests.flatMap(d => d.articleIds));
-    const [result] = await db.select({ count: sql<number>`count(*)` })
-      .from(articles)
-      .where(eq(articles.dismissed, false));
-    const totalArticles = result?.count || 0;
-    return totalArticles > digestedIds.size;
-  }
-
-  async getLatestDigestCreatedAt(): Promise<Date | null> {
-    const [result] = await db.select({ latest: sql<Date>`max(${articleDigests.createdAt})` }).from(articleDigests);
-    return result?.latest || null;
   }
 
   async approvePendingEntry(id: number): Promise<KnowledgeEntry> {
@@ -1204,28 +1000,6 @@ export class DatabaseStorage implements IStorage {
 
   async deleteNewsapiQuery(id: number): Promise<void> {
     await db.delete(newsapiQueries).where(eq(newsapiQueries.id, id));
-  }
-
-  async getTlDocuments(): Promise<TlDocument[]> {
-    return db.select().from(tlDocuments).orderBy(desc(tlDocuments.createdAt));
-  }
-
-  async getActiveTlDocuments(): Promise<TlDocument[]> {
-    return db.select().from(tlDocuments).where(eq(tlDocuments.isActive, true)).orderBy(desc(tlDocuments.createdAt));
-  }
-
-  async createTlDocument(doc: InsertTlDocument): Promise<TlDocument> {
-    const [created] = await db.insert(tlDocuments).values(doc).returning();
-    return created;
-  }
-
-  async updateTlDocument(id: number, data: Partial<InsertTlDocument>): Promise<TlDocument | undefined> {
-    const [updated] = await db.update(tlDocuments).set(data).where(eq(tlDocuments.id, id)).returning();
-    return updated;
-  }
-
-  async deleteTlDocument(id: number): Promise<void> {
-    await db.delete(tlDocuments).where(eq(tlDocuments.id, id));
   }
 
   async createProcessingJob(job: InsertProcessingJob): Promise<ProcessingJob> {

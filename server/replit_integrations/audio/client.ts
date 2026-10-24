@@ -106,17 +106,3 @@ export async function speechToText(
     "Server-side transcription is not configured. Use the browser Web Speech API for voice input."
   );
 }
-
-/**
- * TODO: Implement voice chat (audio-in, audio-out) with a supported provider.
- */
-export async function voiceChat(): Promise<never> {
-  throw new Error("Voice chat is not configured. TODO: redesign with a supported audio provider.");
-}
-
-/**
- * TODO: Implement text-to-speech with a supported provider.
- */
-export async function textToSpeech(): Promise<never> {
-  throw new Error("Text-to-speech is not configured. TODO: redesign with a supported audio provider.");
-}

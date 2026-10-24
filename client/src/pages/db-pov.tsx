@@ -852,7 +852,7 @@ function KnowledgeBaseTab() {
           <CardContent className="py-12 text-center">
             <BookOpen className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
             <h3 className="text-lg font-medium mb-2">No knowledge entries yet</h3>
-            <p className="text-muted-foreground mb-4">Add Demandbase product information, competitive intel, and messaging to power the AI agent.</p>
+            <p className="text-muted-foreground mb-4">Add Demandbase product information, competitive intel, and messaging to inform Morning Briefs.</p>
             <Button onClick={() => setIsCreateOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
               Add First Entry
@@ -1029,7 +1029,7 @@ function KnowledgeBaseTab() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Entry</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete "{deleteTarget?.title}"? This will remove it from the knowledge base and the AI agent will no longer use this information.
+              Are you sure you want to delete "{deleteTarget?.title}"? This will remove it from the knowledge base and future Morning Briefs will no longer use this information.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -2102,7 +2102,7 @@ export default function DbPov() {
             Knowledge Base
           </h1>
           <p className="text-xs text-muted-foreground mt-1">
-            The Demandbase point of view — approved product knowledge that grounds the AI assistants. Edit, add, or remove entries to keep them accurate.
+            The Demandbase point of view — approved product knowledge that informs Morning Briefs. Edit, add, or remove entries to keep them accurate.
           </p>
         </div>
 

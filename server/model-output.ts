@@ -21,27 +21,13 @@ const text = z.string().trim().min(1);
 const texts = z.array(text);
 const ids = z.array(z.number().int().positive());
 const percent = z.number().min(0).max(100);
-const question = z.object({id:text,question:text,why:text});
-const slideOutline = z.array(z.object({slideNumber:z.number().int().positive(),title:text,keyPoints:texts,speakerNotes:z.string()})).min(1);
 const crawlEntry = z.object({category:text,title:text,content:text});
-const opportunity = z.object({
-  title:text,format:text,audience:text,thesis:text,demandbase_angle:text,
-  talking_points:texts,timeliness:text,competitive_differentiation:text,
-});
 
 export const modelOutputSchemas = {
-  slideOutline,
-  presentation:z.object({headline:text,storyArc:text,slideOutline,talkTrack:text}),
   rewrite:z.object({title:text,content:text}),
   consolidation:crawlEntry,
   crawlEntries:z.array(crawlEntry),
   imageDescriptions:z.array(z.object({imageIndex:z.number().int().nonnegative(),description:text})),
-  slideProposal:z.object({explanation:text,proposedDesignNotes:text,proposedSampleTitle:text,proposedSampleBody:text}),
-  slideDesigns:z.array(z.object({
-    name:text,description:text,isNew:z.boolean(),
-    existingLayoutId:z.enum(["title","content","stats","comparison","section","statement","quote","objection","callout","closing","speakers","timeline"]),
-    designNotes:text,designDetails:text,suggestedChanges:z.string(),sampleTitle:text,sampleBody:text,slideNums:ids,
-  })),
   trendAnalysis:z.object({
     title:text,summary:text,keyThemes:texts,insights:text,
     visualData:z.object({
@@ -51,10 +37,6 @@ export const modelOutputSchemas = {
       trendDirection:z.array(z.object({topic:text,direction:z.enum(["up","down","stable"]),momentum:percent})),
     }),
   }),
-  thoughtLeadership:z.object({title:text,summary:text,opportunities:z.array(opportunity)}),
-  opportunity,
-  questions:z.object({acknowledgment:text,questions:z.array(question).min(1)}),
-  followup:z.object({ready:z.boolean(),reaction:text,questions:z.array(question)}).refine(v => v.ready || v.questions.length > 0,"Unready response requires questions"),
   snapshot:z.object({
     trends:z.array(z.object({name:text,description:text,category:text,momentum:z.enum(["rising","stable","declining"]),confidence:z.number().min(0).max(1),articleIds:ids})),
     emergingSignals:z.array(z.object({name:text,description:text,category:text})),

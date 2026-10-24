@@ -37,12 +37,9 @@ describe("model output integrity", () => {
     // Mutation: turn absent narrative fields into persisted placeholder strings.
     expect(() => parseAIJson('{"companyName":"Example","sourcesUsed":"none"}',modelOutputSchemas.companyAnalysis)).toThrow();
   });
-  it("rejects incomplete presentations, design proposals and crawl entries", () => {
+  it("rejects incomplete crawl entries and knowledge edits", () => {
     // Mutation: accept parsed objects without required content types and persist placeholders.
     for (const [schema,value] of [
-      [modelOutputSchemas.presentation,{headline:"Title",storyArc:"Story",slideOutline:[],talkTrack:"Track"}],
-      [modelOutputSchemas.slideDesigns,[{name:"Design",description:"Text"}]],
-      [modelOutputSchemas.slideProposal,{explanation:"Reason",proposedDesignNotes:17}],
       [modelOutputSchemas.crawlEntries,[{category:"Category",title:"Title",content:null}]],
       [modelOutputSchemas.rewrite,{title:"Title"}],
       [modelOutputSchemas.consolidation,{title:"Title",content:"Content"}],
