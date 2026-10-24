@@ -1,8 +1,6 @@
 import { storage } from "./storage";
-import type { InsertArticle, Article } from "@shared/schema";
+import type { InsertArticle } from "@shared/schema";
 import { htmlToText } from "./sanitize";
-import { tagUntaggedArticles } from "./tag-sweep";
-import type { BackfillArticle } from "./tag-backfill";
 
 const NEWSAPI_BASE = "https://newsapi.org/v2";
 
@@ -63,7 +61,6 @@ export async function fetchNewsAPIArticles(): Promise<{ total: number; errors: n
 
   let total = 0;
   let errors = 0;
-  const createdRows: Article[] = [];
 
   for (const query of queries) {
     try {
@@ -107,7 +104,6 @@ export async function fetchNewsAPIArticles(): Promise<{ total: number; errors: n
 
         const created = await storage.createArticle(article);
         if (!created) continue;
-        createdRows.push(created);
         total++;
       }
     } catch (err) {
@@ -117,24 +113,6 @@ export async function fetchNewsAPIArticles(): Promise<{ total: number; errors: n
   }
 
   console.log(`NewsAPI: Added ${total} articles with ${errors} errors`);
-
-  if (createdRows.length > 0) {
-    try {
-      const backfillArticles: BackfillArticle[] = createdRows.map((a) => ({
-        id: a.id,
-        title: a.title,
-        description: a.description,
-        sourceName: a.sourceName,
-        category: a.category,
-      }));
-      const tagResult = await tagUntaggedArticles(backfillArticles);
-      console.log(
-        `NewsAPI: real-time tagging — tagged=${tagResult.tagged}, empty=${tagResult.empty}, skipped=${tagResult.skipped}`
-      );
-    } catch (err) {
-      console.error("NewsAPI: real-time tagging failed (non-blocking):", err instanceof Error ? err.message : err);
-    }
-  }
 
   return { total, errors };
 }

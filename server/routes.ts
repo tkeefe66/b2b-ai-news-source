@@ -8,7 +8,6 @@ import { fetchAllFeeds, fetchFeedArticles, DEFAULT_SOURCES } from "./rss";
 import { fetchNewsAPIArticles, seedDefaultNewsapiQueries } from "./newsapi";
 import { insertSourceSchema, insertKnowledgeEntrySchema, insertPendingKnowledgeSchema, insertProductFeatureSchema, insertNewsapiQuerySchema, insertTrendWatchlistSchema, FEED_TAG_STATUSES, TAG_SURFACE_THRESHOLD, type FeedTagStatus, type Article } from "@shared/schema";
 import { mergeQueueTags } from "./tag-queue";
-import { annotateTags } from "./tag-annotator";
 import { z } from "zod";
 import { AVAILABLE_MODELS, chatCompletion, resolveModel, createAnthropicMessage } from "./ai-models";
 import { report } from "./usage.js";
@@ -590,30 +589,10 @@ Respond with ONLY the category name, nothing else.`,
       const names = surfaced.map((t) => t.name);
       const enrichment = names.length ? await storage.getTagEnrichment(names) : [];
 
-      let annotations: Awaited<ReturnType<typeof annotateTags>> = [];
-      const unannotated = surfaced.filter((t) => !t.aiSummary).slice(0, 30);
-      if (unannotated.length > 0) {
-        try {
-          const headlines = await storage.getTagHeadlines(unannotated.map((t) => t.name), 3);
-          const enrichByName = new Map(enrichment.map((e) => [e.name, e]));
-          annotations = await annotateTags(
-            unannotated.map((t) => ({
-              name: t.name,
-              displayName: t.displayName,
-              sources: enrichByName.get(t.name)?.sources ?? [],
-              headlines: headlines[t.name] ?? [],
-            }))
-          );
-          if (annotations.length > 0) await storage.cacheTagAnnotations(annotations);
-        } catch (err) {
-          console.error("Tag annotation failed (queue still served):", err);
-        }
-      }
-
       res.json({
         threshold: TAG_SURFACE_THRESHOLD,
         hiddenCount,
-        tags: mergeQueueTags(surfaced, enrichment, annotations),
+        tags: mergeQueueTags(surfaced, enrichment, []),
       });
     } catch (err) {
       console.error("Error building feed-tag queue:", err);
