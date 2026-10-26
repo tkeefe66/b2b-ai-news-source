@@ -5,9 +5,10 @@ import { getBriefConfig, type BriefConfig } from "./config";
 import { shouldRunNow, computeWindow, nextAction, zonedParts } from "./schedule-logic";
 import { gatherInputs, composeBrief } from "./composer";
 import { renderBriefEmail, renderFallbackEmail, type RenderedEmail } from "./render-email";
-import { sendEmail } from "./deliver";
+import { sendEmail, getBriefSender } from "./deliver";
 import { blog } from "./log";
 import { z } from "zod";
+import { getRuntimeBriefConfig } from "./recipients";
 
 const TICK_MS = 5 * 60 * 1000;
 const DELIVERY_RETRY_WINDOW_MS = 23 * 3600_000;
@@ -15,6 +16,7 @@ const deliverySchema = z.object({
   email: z.object({ subject: z.string(), html: z.string(), text: z.string() }),
   recipients: z.array(z.string()).min(1),
   fallback: z.boolean(),
+  from: z.string().optional(),
 });
 
 export interface PipelineDeps {
@@ -77,7 +79,7 @@ async function sendStored(brief: Brief, cfg: BriefConfig, d: PipelineDeps): Prom
 
   // Freeze recipients and content before any provider side effect. Retries after
   // restart must use the identical request, including fallback headlines.
-  const snapshot = { email, recipients: cfg.recipients, fallback: !brief.payload };
+  const snapshot = { email, recipients: cfg.recipients, fallback: !brief.payload, from: getBriefSender() };
   const prepared = await storage.updateBrief(brief.id, {
     deliveryPayload: JSON.stringify(snapshot), deliveryStartedAt: new Date(), status: "sending",
   });
@@ -87,7 +89,10 @@ async function sendStored(brief: Brief, cfg: BriefConfig, d: PipelineDeps): Prom
 
 async function deliverSnapshot(brief: Brief, snapshot: z.infer<typeof deliverySchema>, d: PipelineDeps): Promise<Brief> {
   try {
-    await d.send(snapshot.email, snapshot.recipients, { idempotencyKey: `morning-brief/${brief.id}` });
+    await d.send(snapshot.email, snapshot.recipients, {
+      idempotencyKey: `morning-brief/${brief.id}`,
+      ...(snapshot.from ? { from: snapshot.from } : {}),
+    });
     const status = snapshot.fallback ? "sent_fallback" : "sent";
     blog(`brief ${brief.id} (${brief.briefDate}) ${status}`);
     return (await storage.updateBrief(brief.id, { status, sentAt: new Date(), error: null }))!;
@@ -147,7 +152,7 @@ export async function briefTick(now: Date = new Date(), partialDeps: Partial<Pip
   if (tickInFlight) return;
   tickInFlight = true;
   try {
-    const cfg = getBriefConfig();
+    const cfg = await getRuntimeBriefConfig();
     if (!cfg.enabled) return;
 
     const { run, dateStr, reason } = shouldRunNow(now, cfg);
@@ -178,7 +183,7 @@ export async function briefTick(now: Date = new Date(), partialDeps: Partial<Pip
 }
 
 export async function runManualBrief(partialDeps: Partial<PipelineDeps> = {}): Promise<Brief> {
-  const cfg = getBriefConfig();
+  const cfg = await getRuntimeBriefConfig();
   if (!cfg.enabled) {
     throw new Error(`Morning brief is not configured: ${cfg.disabledReason}`);
   }
@@ -208,11 +213,8 @@ export function startBriefScheduler(): void {
   if (started) return;
   started = true;
   const cfg = getBriefConfig();
-  if (!cfg.enabled) {
-    blog(`scheduler disabled: ${cfg.disabledReason}`);
-    return;
-  }
-  blog(`scheduler started: weekdays ${cfg.hour}:00 ${cfg.timeZone}, ${cfg.recipients.length} recipient(s), tick every ${TICK_MS / 60000} min`);
+  // Keep polling even with an empty list so adding the first recipient needs no restart.
+  blog(`scheduler started: weekdays ${cfg.hour}:00 ${cfg.timeZone}, saved recipients checked every ${TICK_MS / 60000} min`);
   setInterval(() => {
     briefTick().catch(err => console.error("Morning brief tick error (non-fatal):", err));
   }, TICK_MS);

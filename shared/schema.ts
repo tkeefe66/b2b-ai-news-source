@@ -607,6 +607,12 @@ export const insertCrawlEntrySchema = createInsertSchema(crawlEntries).omit({
 export type CrawlEntry = typeof crawlEntries.$inferSelect;
 export type InsertCrawlEntry = z.infer<typeof insertCrawlEntrySchema>;
 
+// A single durable settings row distinguishes an empty list from an uninitialized list.
+export const briefRecipientSettings = pgTable("brief_recipient_settings", {
+  id: text("id").primaryKey(),
+  recipients: json("recipients").$type<string[]>().notNull(),
+});
+
 export const briefs = pgTable("briefs", {
   id: serial("id").primaryKey(),
   briefDate: text("brief_date").notNull(), // YYYY-MM-DD in BRIEF_TZ

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { Brief } from "@shared/schema";
 
 vi.mock("../storage", () => ({
@@ -31,6 +31,11 @@ vi.mock("./config", () => ({
 
 import { executeAction, briefTick } from "./scheduler";
 import { storage } from "../storage";
+import { getRuntimeBriefConfig } from "./recipients";
+vi.mock("./recipients", async () => {
+  const { getBriefConfig } = await import("./config");
+  return { getRuntimeBriefConfig: vi.fn(async () => getBriefConfig()) };
+});
 
 const cfg = {
   enabled: true, hour: 7, timeZone: "America/Chicago",
@@ -61,6 +66,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(storage.updateBrief).mockImplementation(async (_id, data) => row(data as any));
 });
+afterEach(() => vi.unstubAllEnvs());
 
 describe("executeAction", () => {
   it("does not retry a legacy ambiguous send without an original delivery key", async () => {
@@ -98,10 +104,12 @@ describe("executeAction", () => {
     let saved = row({ status: "failed_compose", attempts: 3 });
     vi.mocked(storage.updateBrief).mockImplementation(async (_id, data) => (saved = { ...saved, ...data } as Brief));
     const send = vi.fn().mockRejectedValueOnce(new Error("response lost")).mockResolvedValue({ id: "em_1" });
+    vi.stubEnv("BRIEF_FROM_EMAIL", "Brief <brief@example.com>");
     await executeAction(saved, "fallback", cfg, { send });
+    vi.stubEnv("BRIEF_FROM_EMAIL", "Brief <changed@example.com>");
     await executeAction(saved, "send", { ...cfg, recipients: ["changed@example.com"] }, { send });
     expect(send.mock.calls[1]).toEqual(send.mock.calls[0]);
-    expect(send.mock.calls[0][2]).toEqual({ idempotencyKey: "morning-brief/10" });
+    expect(send.mock.calls[0][2]).toEqual({ idempotencyKey: "morning-brief/10", from: "Brief <brief@example.com>" });
   });
 
   it("requires delivery review after the provider idempotency window", async () => {
@@ -192,6 +200,17 @@ describe("executeAction", () => {
 });
 
 describe("briefTick re-entrancy guard", () => {
+  it("uses saved recipients on the next tick and skips an empty list", async () => {
+    // Mutation: reading environment config bypasses UI edits and continues sending after removal.
+    const send = vi.fn().mockResolvedValue({ id: "em_saved" });
+    vi.mocked(storage.getRealBriefByDate).mockResolvedValue(row({ status: "composed", payload: JSON.stringify(validPayload) }));
+    vi.mocked(getRuntimeBriefConfig).mockResolvedValueOnce({ ...cfg, hour: 0, timeZone: "UTC", recipients: ["saved@example.com"] });
+    await briefTick(new Date("2024-01-01T12:00:00Z"), { send });
+    expect(send.mock.calls[0][1]).toEqual(["saved@example.com"]);
+    vi.mocked(getRuntimeBriefConfig).mockResolvedValueOnce({ ...cfg, enabled: false, recipients: [] });
+    await briefTick(new Date("2024-01-02T12:00:00Z"), { send });
+    expect(send).toHaveBeenCalledTimes(1);
+  });
   it("a tick still in flight blocks a concurrent tick from double-composing/double-sending", async () => {
     let resolveCompose!: (value: typeof validPayload) => void;
     const composePromise = new Promise<typeof validPayload>(resolve => {

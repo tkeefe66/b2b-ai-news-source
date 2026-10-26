@@ -4,6 +4,9 @@ import type { RenderedEmail } from "./render-email";
 import { blog } from "./log";
 
 const FROM = "GTM Brief <onboarding@resend.dev>";
+export function getBriefSender(): string {
+  return process.env.BRIEF_FROM_EMAIL?.trim() || FROM;
+}
 
 export interface EmailClient {
   send(args: {
@@ -25,7 +28,7 @@ function resendClient(): EmailClient {
 export async function sendEmail(
   email: RenderedEmail,
   to: string[],
-  deps: { idempotencyKey: string; client?: EmailClient; retries?: number },
+  deps: { idempotencyKey: string; client?: EmailClient; retries?: number; from?: string },
 ): Promise<{ id: string }> {
   const client = deps.client ?? resendClient();
   const retries = deps.retries ?? 3;
@@ -33,7 +36,8 @@ export async function sendEmail(
     return await pRetry(
       async () => {
         const { data, error } = await client.send({
-          from: FROM,
+          // Legacy snapshots omit from and must retain the original sender on retry.
+          from: deps.from ?? FROM,
           to,
           subject: email.subject,
           html: email.html,

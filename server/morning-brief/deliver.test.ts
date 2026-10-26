@@ -4,6 +4,12 @@ import { sendEmail } from "./deliver";
 const email = { subject: "s", html: "<p>h</p>", text: "t" };
 
 describe("sendEmail", () => {
+  it("uses the sender frozen in a new delivery snapshot", async () => {
+    // Mutation: always using the sandbox sender prevents delivery to new subscribers.
+    const client = { send: vi.fn().mockResolvedValue({ data: { id: "em_custom" }, error: null }) };
+    await sendEmail(email, ["new@example.com"], { client, retries: 0, idempotencyKey: "brief/custom", from: "Brief <brief@example.com>" });
+    expect(client.send.mock.calls[0][0].from).toBe("Brief <brief@example.com>");
+  });
   it("reuses the provider key after an accepted send loses its response", async () => {
     // Mutation: dropping the provider idempotency option delivers twice after response loss.
     const accepted = new Set<string>();

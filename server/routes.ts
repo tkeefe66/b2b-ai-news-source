@@ -17,6 +17,7 @@ import { upload, chunkUpload, handleChunkUpload, consumeUploadedFile, extractTex
 import { analyzeImages, analyzeVideoFrames } from "./image-analyzer";
 import fs from "fs";
 import { runManualBrief } from "./morning-brief/scheduler";
+import { registerBriefRecipientRoutes } from "./morning-brief/recipient-routes";
 import { listDriveFiles, downloadDriveFile } from "./google-drive";
 import { ensureCompatibleFormat, speechToText } from "./replit_integrations/audio/client";
 
@@ -1266,6 +1267,7 @@ ${NO_DASH_RULE}`
   });
 
   // Morning Brief (push email)
+  registerBriefRecipientRoutes(app);
   app.post("/api/brief/send-now", async (_req, res) => {
     try {
       const brief = await runManualBrief();

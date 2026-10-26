@@ -7,8 +7,8 @@ export interface BriefConfig {
   disabledReason?: string;
 }
 
-export function getBriefConfig(env: NodeJS.ProcessEnv = process.env): BriefConfig {
-  const recipients = (env.BRIEF_RECIPIENTS || "")
+export function getBriefConfig(env: NodeJS.ProcessEnv = process.env, savedRecipients?: string[]): BriefConfig {
+  const recipients = savedRecipients ?? (env.BRIEF_RECIPIENTS || "")
     .split(",")
     .map(s => s.trim())
     .filter(Boolean);
@@ -30,7 +30,7 @@ export function getBriefConfig(env: NodeJS.ProcessEnv = process.env): BriefConfi
     return { ...base, enabled: false, disabledReason: "RESEND_API_KEY is not set" };
   }
   if (recipients.length === 0) {
-    return { ...base, enabled: false, disabledReason: "BRIEF_RECIPIENTS is not set" };
+    return { ...base, enabled: false, disabledReason: "No email recipients are configured" };
   }
   return { ...base, enabled: true };
 }

@@ -39,7 +39,7 @@ describe("getBriefConfig", () => {
   it("is disabled without recipients", () => {
     const cfg = getBriefConfig({ RESEND_API_KEY: "re_123" } as NodeJS.ProcessEnv);
     expect(cfg.enabled).toBe(false);
-    expect(cfg.disabledReason).toContain("BRIEF_RECIPIENTS");
+    expect(cfg.disabledReason).toContain("No email recipients");
   });
 
   it("ignores empty entries in the recipient list", () => {

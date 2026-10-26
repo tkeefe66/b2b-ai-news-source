@@ -12,6 +12,7 @@ import type { Brief } from "@shared/schema";
 import { briefPayloadSchema, type BriefPayload } from "@shared/brief-payload";
 import { HowBriefWorks } from "@/components/how-brief-works";
 import { ConfirmDestructive } from "@/components/confirm-destructive";
+import { BriefRecipients } from "@/components/brief-recipients";
 
 const STATUS_LABEL: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   sent: { label: "Sent", variant: "default" },
@@ -185,6 +186,7 @@ export default function MorningBrief({ embedded = false }: { embedded?: boolean 
           </div>
         )}
 
+        <BriefRecipients />
         {!isLoading && <HowBriefWorks defaultOpen={!briefs || briefs.length === 0} />}
 
         {isLoading ? (
